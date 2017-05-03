@@ -1,39 +1,32 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <errno.h>
+/*
+ * ==================================================================
+ *
+ * Filename : serveur.c
+ *
+ * Description : file used to play the server role.
+ * 
+ * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
+ *
+ * ==================================================================
+ */
 
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
-#define closesocket(s) close(s)
-#define PORT 8888
-#define MAX_PLAYER 5
-
-typedef int SOCKET;
-typedef struct sockaddr_in SOCKADDR_IN;
-typedef struct sockaddr SOCKADDR;
-typedef struct in_addr IN_ADDR;
-
-typedef struct message {
-	int status;
-	char content[1024];
-} message;
+#include "global.h"
+#include "serveur.h"
 
 int main(int argc, char** argv) {
 	SOCKET sock;
 	SOCKET csock[MAX_PLAYER];
+	char * pseudos[4];
 	message buffer;
+	int port, n = 0, i = 0;
 	const char *hostname = "127.0.0.1";
-	int n = 0;
-	int i = 0;
 	SOCKADDR_IN sin;
 	SOCKADDR_IN csin;
+	if(argc != 3) {
+		fprintf(stderr, "serveur [numPort] [stderr]\n");
+		return EXIT_ERROR;
+	}
+	port = atoi(*++argv);
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock == INVALID_SOCKET) {
 		perror("socket()");
@@ -41,7 +34,7 @@ int main(int argc, char** argv) {
 	}
 	sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(PORT);
+	sin.sin_port = htons(port);
 	if(bind(sock, (SOCKADDR *) &sin, sizeof sin) == SOCKET_ERROR) {
 		perror("bind()");
 		exit(errno);
@@ -63,6 +56,11 @@ int main(int argc, char** argv) {
 			perror("recv()");
 			exit(errno);
 		}
+		if((pseudos[i] = (char *) malloc(sizeof(char) * strlen(buffer))) == -1) {
+			perror("malloc()");
+			exit(errno);
+		}
+		pseudos[i] = buffer;
 		i++;
 		printf("Tentative de connexion de : %s\n", buffer.content);
 	}

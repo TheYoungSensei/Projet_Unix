@@ -1,42 +1,38 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <errno.h>
+/*
+ * ==================================================================
+ *
+ * Filename : joueur.c
+ *
+ * Description : file used to play the client role.
+ * 
+ * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
+ *
+ * ==================================================================
+ */
 
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
-#define closesocket(s) close(s)
-#define PORT 8888
-
-typedef int SOCKET;
-typedef struct sockaddr_in SOCKADDR_IN;
-typedef struct sockaddr SOCKADDR;
-typedef struct in_addr IN_ADDR;
-
-typedef struct message {
-	int status;
-	char content[1024];
-} message;
+#include "global.h"
+#include "joueur.h"
 
 int main(int argc, char** argv) {
 	SOCKET sock;
 	message buffer;
 	char ligne[1024];
-	const char *hostname = "127.0.0.1";
+	const char *hostname;
 	struct hostent *hostinfo = NULL;
 	int n = 0;
+	int port;
+	SOCKADDR_IN sin = { 0 };
+	if(argc != 3) {
+		fprintf(stderr, "joueur [port] [ip]\n");
+		return EXIT_ERROR;
+	}
+	port = atoi(*++argv);
+	hostname = *++argv;
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock == INVALID_SOCKET) {
 		perror("socket()");
 		exit(errno);
 	}
-	SOCKADDR_IN sin = { 0 };
 	hostinfo = gethostbyname(hostname);
 	if(hostinfo == NULL) {
 		fprintf(stderr, "Unknown host %s.\n", hostname);
@@ -44,7 +40,7 @@ int main(int argc, char** argv) {
 	} 
 
 	sin.sin_addr = *(IN_ADDR *) hostinfo->h_addr;
-	sin.sin_port = htons(PORT);
+	sin.sin_port = htons(port);
 	sin.sin_family = AF_INET;
 	if(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)) == SOCKET_ERROR) {
 		perror("connect()");
