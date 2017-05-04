@@ -4,7 +4,7 @@
  * Filename : joueur.h
  *
  * Description : Header of the joueur.c file
- * 
+ *
  * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
  *
  * ==================================================================
@@ -25,5 +25,10 @@
 
 #define closesocket(s) close(s)
 #define NAME_LENGTH 64
+
 #endif
-int keyboardReader(char* name[NAME_LENGTH]);
+
+SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);
+int keyboardReader(char** name);
+int readSocket(SOCKET sock, message * buffer);
+int sendSocket(SOCKET sock, message * buffer);

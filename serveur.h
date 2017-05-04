@@ -4,7 +4,7 @@
  * Filename : serveur.h
  *
  * Description : Header of the server.c file
- * 
+ *
  * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
  *
  * ==================================================================
@@ -31,6 +31,10 @@
 #define closesocket(s) close(s)
 #define MAX_PLAYER 4
 
-
 #endif
 
+int readSocket(SOCKET sock, message * buffer);
+int sendSocket(SOCKET sock, message * buffer);
+void lock();
+void serverInit(int * sock, SOCKADDR_IN * sin, int port);
+SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i);

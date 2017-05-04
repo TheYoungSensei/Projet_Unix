@@ -14,26 +14,31 @@
 #include "serveur.h"
 #define SYS(call) ((call) == -1) ? perror(#call " : ERROR "), exit(1) : 0
 
+static int timeoutInt = 0;
+static int serverInt = 0;
+
 void timeout(int bla){
-	return;
+	timeoutInt = 1;
 }
+
+void serverInterrupt(int sig) {
+	serverInt = 1;
+}
+
 int main(int argc, char** argv) {
 	SOCKET sock;
-	int port, n = 0, i = 0, compteur, maxFd = sock, timedout, f_lock;
+	SOCKADDR_IN sin, csin;
+	message buffer;
 	SOCKET csock[MAX_PLAYER];
 	char * pseudos[MAX_PLAYER];
-	message buffer;
 	struct timeval tv;
-	struct sigaction act;
+	struct sigaction act, actInt;
 	sigset_t set;
 	fd_set readfds;
 	int fd_stdin = fileno(stdin);
 	pid_t cpid;
-	tv.tv_sec = 50;//ou récupérer via argv
-	tv.tv_usec = 0;
 	const char *hostname = "127.0.0.1";
-	SOCKADDR_IN sin;
-	SOCKADDR_IN csin;
+	int sinsize, port, n = 0, i = 0, compteur, maxFd = sock, timedout, f_lock;
 
 	/* Arguments  Management */
 	if(argc != 3) {
@@ -45,25 +50,27 @@ int main(int argc, char** argv) {
 	lock();
 	/* Server Initialisation */
 	serverInit(&sock, &sin, port);
-	int sinsize = sizeof csin;
+	sinsize = sizeof csin;
+	/* Sigaction Initialisation */
 	act.sa_handler = timeout;
 	act.sa_flags = 0;
+	actInt.sa_handler = serverInterrupt;
+	actInt.sa_flags = 0;
 	sigemptyset(&act.sa_mask);
 	SYS(sigfillset(&set));
 	SYS(sigdelset(&set, SIGALRM));
+	SYS(sigdelset(&set, SIGINT));
 	SYS(sigprocmask(SIG_BLOCK, &set, NULL));
 	sigaction(SIGALRM, &act, NULL);
+	sigaction(SIGINT, &actInt, NULL);
+	/* Set Max Time for Select */
+	tv.tv_sec = 30;
+	tv.tv_usec = 0;
 	/* Begin Inscription */
-	while(1)
-	{
+	while(1) {
+		/* First participant */
 		if (i==0){
-			csock[i] = accept(sock, (SOCKADDR *) &csin, (socklen_t *) &sinsize);
-			buffer.status = 200;
-			sprintf(buffer.content, "Bienvenue sur notre Papayoo's party\n Il y a actuellement %d joueur(s) connectés\n", i + 1);
-			if(send(csock[i], &buffer, sizeof(buffer) -1, 0) < 0) {
-				perror("send()");
-				exit(errno);
-			}
+			csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i);
 			i++;
 			continue;
 		}
@@ -75,36 +82,36 @@ int main(int argc, char** argv) {
 		}
 		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == -1){
 			if (errno == EINTR){
-				printf("TEST");
-				//close socket
+				/* Alarm launched */
+				if (serverInt) {
+					/* Server Interrupt CTRL-C */
+					printf("Fin du programme\n");
+					closesocket(sock);
+					for(i =0; i < MAX_PLAYER; i++) {
+						closesocket(csock[i]);
+					}
+					exit(0);
+				}
+				printf("La partie va commencer\n")
 			}
 			break;
 		} else if(timedout == 0){
 			/*Normalement ce bout de code n'est jamais atteint */
 		} else {
 			if (FD_ISSET(sock, &readfds)){
-				csock[i] = accept(sock, (SOCKADDR *) &csin, (socklen_t *) &sinsize);
-				buffer.status = 200;
-				sprintf(buffer.content, "Bienvenue sur notre Papayoo's party\n Il y a actuellement %d joueur(s) connectés\n", i + 1);
-				if(send(csock[i], &buffer, sizeof(buffer) -1, 0) < 0) {
-					perror("send()");
-					exit(errno);
-				}
+				csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i);
 				i++;
 			} else {
 				for (compteur = 0 ; compteur < i; compteur++){
 					if(FD_ISSET(csock[compteur], &readfds)) {
-						readSocket(csock[compteur], &buffer);
-						if (buffer.status == 401){//TODO change status -> DISCONNECT etc
+						n = readSocket(csock[compteur], &buffer);
+						if (n == -1) {//TODO change status -> DISCONNECT etc
 							csock[compteur] = csock[i];
-							//clean socket
 							i--;
 						} else {
-							if (1)// si la taille de pseudos est à 0
-							{
+							if (1) { /* Si le nombre de pseudos connus = 1 */
 								alarm(30);
 							}
-							printf("%s", buffer.content);
 							pseudos[compteur] = buffer.content;
 						}
 					}
@@ -114,34 +121,23 @@ int main(int argc, char** argv) {
 	}
 	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
 
-
-	if (i == MAX_PLAYER){
+	/* NOT DONE --- WORK TO DO */
+	/*if (i == MAX_PLAYER){
 		buffer.status = 500;
-		sprintf(buffer.content, "La partie est pleine, vous ne pouvez plus la rejoindre !\n");
-		if(send(csock[i], &buffer, sizeof(buffer) -1, 0) < 0) {
-			perror("send()");
-			exit(errno);
-		}
+		strcpy(buffer.content, "La partie est pleine, vous ne pouvez plus la rejoindre !\n");
+		sendSocket(csock[i], &buffer);
 	}
 	buffer.status = 1;
 	memset(buffer.content, 0, sizeof buffer.content);
 
 	sprintf(buffer.content, "La partie commence. Il y a au moins %d joueurs.\n", i);
-	for (int compteur = 0 ; compteur < i; compteur++)
+	for (compteur = 0 ; compteur < i; compteur++)
 	{
-		if(send(csock[compteur], &buffer, sizeof(buffer) -1, 0) < 0) {
-			perror("send()");
-			exit(errno);
-		}
-		/* RECEPTION */
+		sendSocket(csock[compteur], &buffer);
 		readSocket(csock[compteur], &buffer);
 		printf("Le joueur a répondu : %s\n", buffer.content);
 
-	}
-	if(csock[i] == INVALID_SOCKET) {
-		perror("accept()");
-		exit(errno);
-	}
+	}*/
 	closesocket(sock);
 	for(i =0; i < MAX_PLAYER; i++) {
 		closesocket(csock[i]);
@@ -157,7 +153,8 @@ int main(int argc, char** argv) {
  * Exit in case of error.
  */
 int readSocket(SOCKET sock, message *  buffer) {
-	if((n = recv(csock[compteur], buffer, sizeof(buffer) - 1, 0)) < -1) {
+	int n; /* Number of caracs get by recv */
+	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) < -1) {
 		if(errno == EOF) {
 			return -1; /* Can be replaced with player.disconnect */
 		}
@@ -173,7 +170,7 @@ int readSocket(SOCKET sock, message *  buffer) {
  * Exit in case of error.
  */
 int sendSocket(SOCKET sock, message * buffer) {
-	if(send(sock, buffer, sizeof(buffer) -1, 0) < 0) {
+	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
 		perror("send()");
 		exit(errno);
 	}
@@ -205,7 +202,7 @@ void lock() {
  * Used to initialize the server.
  * Exit in case of error.
  */
-void serverInit(int * sock, SOCKADDR_IN * sin, int port) {	
+void serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 	/* Server Initialisation */
 	*(sock) = socket(AF_INET, SOCK_STREAM, 0);
 	if(*(sock) == INVALID_SOCKET) {
@@ -216,13 +213,12 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	sin->sin_port = htons(port);
 	if(bind(*(sock), (SOCKADDR *) sin, sizeof *(sin)) == SOCKET_ERROR) {
-		if( errno == EADDRINUSE )
-		{
+		/*if( errno == EADDRINUSE ) {
 			printf("The server is already launched\n");
-		} else {
+		} else {*/
 			perror("bind()");
 			exit(errno);
-		}
+		/*}*/
 	}
 	if(listen(*(sock), MAX_PLAYER) == SOCKET_ERROR) {
 		perror("listen()");
@@ -230,6 +226,18 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 	}
 }
 
-
-
-
+/*
+ * Used to accept a socket.
+ * Return the socket created or exit in case of error.
+ */
+SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i) {
+	SOCKET csock;
+	if((csock = accept(sock, (SOCKADDR *) csin, (socklen_t *) sinsize)) == -1) {
+		perror("accept()");
+		exit(errno);
+	}
+	buffer->status = 200;
+	sprintf(buffer->content, "Bienvenue sur notre Papayoo's party\nIl y a actuellement %d joueur(s) connectés\n", i + 1);
+	sendSocket(csock, buffer);
+	return csock;
+}
