@@ -23,9 +23,14 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <signal.h>
+
 
 #define closesocket(s) close(s)
 #define MAX_PLAYER 4
 
- 
+
 #endif
+

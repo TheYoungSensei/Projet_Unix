@@ -24,6 +24,6 @@
 #include <errno.h>
 
 #define closesocket(s) close(s)
-
+#define NAME_LENGTH 64
 #endif
-
+int keyboardReader(char* name[NAME_LENGTH]);
