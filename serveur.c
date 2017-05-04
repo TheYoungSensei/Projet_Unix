@@ -19,76 +19,41 @@ void timeout(int bla){
 }
 int main(int argc, char** argv) {
 	SOCKET sock;
+	int port, n = 0, i = 0, compteur, maxFd = sock, timedout, f_lock;
 	SOCKET csock[MAX_PLAYER];
 	char * pseudos[MAX_PLAYER];
 	message buffer;
 	struct timeval tv;
 	struct sigaction act;
 	sigset_t set;
-	act.sa_handler = timeout;
-	act.sa_flags = 0;
-	sigemptyset(&act.sa_mask);
-	SYS(sigfillset(&set));
-	SYS(sigdelset(&set, SIGALRM));
 	fd_set readfds;
 	int fd_stdin = fileno(stdin);
 	pid_t cpid;
-	FD_ZERO(&readfds);
-	FD_SET(fileno(stdin), &readfds); //Ajoute les ensemble stdin etc dans readfds. Cela permet au select de lire les fd donnés.
 	tv.tv_sec = 50;//ou récupérer via argv
 	tv.tv_usec = 0;
-	int timedout;
-	int maxFd = sock;
-	int port, n = 0, i = 0;
 	const char *hostname = "127.0.0.1";
 	SOCKADDR_IN sin;
 	SOCKADDR_IN csin;
 
-
-	//flock to avoid double server opening
-	int f_lock;
-	if ((f_lock = open("serveur.lock", O_RDWR)) == -1){
-		perror("open()\n");
-		exit(errno);
-	}
-	if (flock(f_lock, LOCK_EX | LOCK_NB) == -1){
-		if( errno == EWOULDBLOCK ){
-			printf("The server is already launched\n");
-		} else {
-			printf("flock()\n");
-		}
-		exit(errno);
-	}
+	/* Arguments  Management */
 	if(argc != 3) {
 		fprintf(stderr, "serveur [numPort] [stderr]\n");
 		return EXIT_ERROR;
 	}
 	port = atoi(*++argv);
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(sock == INVALID_SOCKET) {
-		perror("socket()");
-		exit(errno);
-	}
-	sin.sin_addr.s_addr = htonl(INADDR_ANY);
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(port);
-	if(bind(sock, (SOCKADDR *) &sin, sizeof sin) == SOCKET_ERROR) {
-		if( errno == EADDRINUSE )
-		{
-			printf("The server is already launched\n");
-		} else {
-			perror("bind()");
-			exit(errno);
-		}
-	}
-	if(listen(sock, MAX_PLAYER) == SOCKET_ERROR) {
-		perror("listen()");
-		exit(errno);
-	}
+	/* Lock */
+	lock();
+	/* Server Initialisation */
+	serverInit(&sock, &sin, port);
 	int sinsize = sizeof csin;
-
+	act.sa_handler = timeout;
+	act.sa_flags = 0;
+	sigemptyset(&act.sa_mask);
+	SYS(sigfillset(&set));
+	SYS(sigdelset(&set, SIGALRM));
 	SYS(sigprocmask(SIG_BLOCK, &set, NULL));
 	sigaction(SIGALRM, &act, NULL);
+	/* Begin Inscription */
 	while(1)
 	{
 		if (i==0){
@@ -104,21 +69,18 @@ int main(int argc, char** argv) {
 		}
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
-		for (int compteur = 0 ; compteur < i; compteur++){
+		for (compteur = 0 ; compteur < i; compteur++){
 			FD_SET(csock[compteur], &readfds);
 			if (csock[compteur]>maxFd) maxFd = csock[compteur];
 		}
-		SYS(timedout = select(maxFd+1, &readfds, NULL, NULL, &tv));
-		if(timedout == -1){
+		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == -1){
 			if (errno == EINTR){
 				printf("TEST");
 				//close socket
 			}
 			break;
-		}
-		else if(timedout == 0){
-			//TODO Début de partie
-			break;
+		} else if(timedout == 0){
+			/*Normalement ce bout de code n'est jamais atteint */
 		} else {
 			if (FD_ISSET(sock, &readfds)){
 				csock[i] = accept(sock, (SOCKADDR *) &csin, (socklen_t *) &sinsize);
@@ -130,12 +92,9 @@ int main(int argc, char** argv) {
 				}
 				i++;
 			} else {
-				for (int compteur = 0 ; compteur < i; compteur++){
+				for (compteur = 0 ; compteur < i; compteur++){
 					if(FD_ISSET(csock[compteur], &readfds)) {
-						if((n = recv(csock[compteur], &buffer, sizeof(buffer) - 1, 0)) < 0) {
-							perror("recvName()");
-							exit(errno);
-						}
+						readSocket(csock[compteur], &buffer);
 						if (buffer.status == 401){//TODO change status -> DISCONNECT etc
 							csock[compteur] = csock[i];
 							//clean socket
@@ -175,10 +134,7 @@ int main(int argc, char** argv) {
 			exit(errno);
 		}
 		/* RECEPTION */
-		if((n = recv(csock[compteur], &buffer, sizeof(buffer) - 1, 0)) < 0) {
-			perror("recv()");
-			exit(errno);
-		}
+		readSocket(csock[compteur], &buffer);
 		printf("Le joueur a répondu : %s\n", buffer.content);
 
 	}
@@ -194,6 +150,85 @@ int main(int argc, char** argv) {
 
 
 
+
+/*
+ * Receive a message from the specified socket.
+ * Returns 0 in case of success, -1 in case of EOF.
+ * Exit in case of error.
+ */
+int readSocket(SOCKET sock, message *  buffer) {
+	if((n = recv(csock[compteur], buffer, sizeof(buffer) - 1, 0)) < -1) {
+		if(errno == EOF) {
+			return -1; /* Can be replaced with player.disconnect */
+		}
+		perror("recv()");
+		exit(errno);
+	}
+	return 0;
+	/* Could be improved */
+}
+
+/*
+ * Send a message to the specified socket.
+ * Exit in case of error.
+ */
+int sendSocket(SOCKET sock, message * buffer) {
+	if(send(sock, buffer, sizeof(buffer) -1, 0) < 0) {
+		perror("send()");
+		exit(errno);
+	}
+	/* Could be improved */
+}
+
+/*
+ * Used to make the server reacting like a singleton.
+ * Exit in case of error.
+ */
+void lock() {
+	int f_lock;
+	//flock to avoid double server opening
+	if ((f_lock = open("serveur.lock", O_RDWR)) == -1){
+		perror("open()\n");
+		exit(errno);
+	}
+	if (flock(f_lock, LOCK_EX | LOCK_NB) == -1){
+		if( errno == EWOULDBLOCK ){
+			printf("The server is already launched\n");
+		} else {
+			printf("flock()\n");
+		}
+		exit(errno);
+	}
+}
+
+/*
+ * Used to initialize the server.
+ * Exit in case of error.
+ */
+void serverInit(int * sock, SOCKADDR_IN * sin, int port) {	
+	/* Server Initialisation */
+	*(sock) = socket(AF_INET, SOCK_STREAM, 0);
+	if(*(sock) == INVALID_SOCKET) {
+		perror("socket()");
+		exit(errno);
+	}
+	sin->sin_addr.s_addr = htonl(INADDR_ANY);
+	sin->sin_family = AF_INET;
+	sin->sin_port = htons(port);
+	if(bind(*(sock), (SOCKADDR *) sin, sizeof *(sin)) == SOCKET_ERROR) {
+		if( errno == EADDRINUSE )
+		{
+			printf("The server is already launched\n");
+		} else {
+			perror("bind()");
+			exit(errno);
+		}
+	}
+	if(listen(*(sock), MAX_PLAYER) == SOCKET_ERROR) {
+		perror("listen()");
+		exit(errno);
+	}
+}
 
 
 
