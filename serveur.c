@@ -22,6 +22,7 @@ void timeout(int bla){
 }
 
 void serverInterrupt(int sig) {
+	/* Server Interrupt CTRL-C */
 	serverInt = 1;
 }
 
@@ -39,17 +40,20 @@ int main(int argc, char** argv) {
 	pid_t cpid;
 	const char *hostname = "127.0.0.1";
 	int sinsize, port, n = 0, i = 0, compteur, maxFd = sock, timedout, f_lock;
-
+	FILE * fderror = NULL;
 	/* Arguments  Management */
 	if(argc != 3) {
 		fprintf(stderr, "serveur [numPort] [stderr]\n");
 		return EXIT_ERROR;
 	}
 	port = atoi(*++argv);
+	if(strcmp(*++argv, "stderr")) {
+		fderror = openFile(*argv, "w", NULL);
+	}
 	/* Lock */
-	lock();
+	lock(fderror);
 	/* Server Initialisation */
-	serverInit(&sock, &sin, port);
+	serverInit(&sock, &sin, port, fderror);
 	sinsize = sizeof csin;
 	/* Sigaction Initialisation */
 	act.sa_handler = timeout;
@@ -61,19 +65,22 @@ int main(int argc, char** argv) {
 	SYS(sigdelset(&set, SIGALRM));
 	SYS(sigdelset(&set, SIGINT));
 	SYS(sigprocmask(SIG_BLOCK, &set, NULL));
-	sigaction(SIGALRM, &act, NULL);
-	sigaction(SIGINT, &actInt, NULL);
+	SYS(sigaction(SIGALRM, &act, NULL));
+	SYS(sigaction(SIGINT, &actInt, NULL));
 	/* Set Max Time for Select */
-	tv.tv_sec = 30;
-	tv.tv_usec = 0;
 	/* Begin Inscription */
 	while(1) {
+		maxFd = sock;
+		tv.tv_sec = 3;
+		tv.tv_usec = 0;
 		/* First participant */
-		if (i==0){
-			csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i);
+		printf("i : %d\n", i);
+		/*if (i==0){
+			fprintf(stderr, "serverInt : %d\n", serverInt);
+			csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i, fderror);
 			i++;
 			continue;
-		}
+		}*/
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		for (compteur = 0 ; compteur < i; compteur++){
@@ -82,30 +89,43 @@ int main(int argc, char** argv) {
 		}
 		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == -1){
 			if (errno == EINTR){
-				/* Alarm launched */
-				if (serverInt) {
-					/* Server Interrupt CTRL-C */
-					printf("Fin du programme\n");
-					closesocket(sock);
-					for(i =0; i < MAX_PLAYER; i++) {
-						closesocket(csock[i]);
-					}
-					exit(0);
-				}
-				printf("La partie va commencer\n")
+				printf("La partie va commencer\n");
+				break;
 			}
-			break;
+			writeToErr(stderr, "select()");
 		} else if(timedout == 0){
-			/*Normalement ce bout de code n'est jamais atteint */
+			if(timeoutInt == 1) {
+				printf("La partie va commencer\n");
+				break;
+			} else if (serverInt == 1) {
+				printf("Fin du programme\n");
+				closesocket(sock);
+				for(compteur =0; compteur < MAX_PLAYER; compteur++) {
+					closesocket(csock[compteur]);
+				}
+				exit(0);
+			}
 		} else {
+			if(timeoutInt == 1) {
+				printf("La partie va commencer\n");
+				break;
+			} else if (serverInt == 1) {
+				printf("Fin du programme\n");
+				closesocket(sock);
+				for(compteur =0; compteur < MAX_PLAYER; compteur++) {
+					closesocket(csock[compteur]);
+				}
+				exit(0);
+			}
+
 			if (FD_ISSET(sock, &readfds)){
-				csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i);
+				csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i, fderror);
 				i++;
 			} else {
 				for (compteur = 0 ; compteur < i; compteur++){
 					if(FD_ISSET(csock[compteur], &readfds)) {
-						n = readSocket(csock[compteur], &buffer);
-						if (n == -1) {//TODO change status -> DISCONNECT etc
+						n = readSocket(csock[compteur], &buffer, fderror);
+						if (n == 0) {//TODO change status -> DISCONNECT etc
 							csock[compteur] = csock[i];
 							i--;
 						} else {
@@ -121,6 +141,11 @@ int main(int argc, char** argv) {
 	}
 	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
 
+	for(compteur = 0; compteur < MAX_PLAYER; compteur++) {
+		buffer.status = 200;
+		strcpy(buffer.content, "Lancement de la partie");
+		sendSocket(csock[compteur], &buffer, stderr);
+	}
 	/* NOT DONE --- WORK TO DO */
 	/*if (i == MAX_PLAYER){
 		buffer.status = 500;
@@ -149,19 +174,18 @@ int main(int argc, char** argv) {
 
 /*
  * Receive a message from the specified socket.
- * Returns 0 in case of success, -1 in case of EOF.
+ * Returns numbers of caracs readed.
  * Exit in case of error.
  */
-int readSocket(SOCKET sock, message *  buffer) {
+int readSocket(SOCKET sock, message *  buffer, FILE * file) {
 	int n; /* Number of caracs get by recv */
 	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) < -1) {
 		if(errno == EOF) {
 			return -1; /* Can be replaced with player.disconnect */
 		}
-		perror("recv()");
-		exit(errno);
+		writeToErr(file, "recv()");
 	}
-	return 0;
+	return n;
 	/* Could be improved */
 }
 
@@ -169,10 +193,9 @@ int readSocket(SOCKET sock, message *  buffer) {
  * Send a message to the specified socket.
  * Exit in case of error.
  */
-int sendSocket(SOCKET sock, message * buffer) {
+int sendSocket(SOCKET sock, message * buffer, FILE * file) {
 	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
-		perror("send()");
-		exit(errno);
+		writeToErr(file, "send()");
 	}
 	/* Could be improved */
 }
@@ -181,20 +204,18 @@ int sendSocket(SOCKET sock, message * buffer) {
  * Used to make the server reacting like a singleton.
  * Exit in case of error.
  */
-void lock() {
+void lock(FILE * file) {
 	int f_lock;
 	//flock to avoid double server opening
 	if ((f_lock = open("serveur.lock", O_RDWR)) == -1){
-		perror("open()\n");
-		exit(errno);
+		writeToErr(file, "open()");
 	}
 	if (flock(f_lock, LOCK_EX | LOCK_NB) == -1){
 		if( errno == EWOULDBLOCK ){
-			printf("The server is already launched\n");
+			writeToErr(file, "The server is already launched");
 		} else {
-			printf("flock()\n");
+			writeToErr(file, "flock");
 		}
-		exit(errno);
 	}
 }
 
@@ -202,12 +223,11 @@ void lock() {
  * Used to initialize the server.
  * Exit in case of error.
  */
-void serverInit(int * sock, SOCKADDR_IN * sin, int port) {
+void serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file) {
 	/* Server Initialisation */
 	*(sock) = socket(AF_INET, SOCK_STREAM, 0);
 	if(*(sock) == INVALID_SOCKET) {
-		perror("socket()");
-		exit(errno);
+		writeToErr(file, "sock()");
 	}
 	sin->sin_addr.s_addr = htonl(INADDR_ANY);
 	sin->sin_family = AF_INET;
@@ -216,13 +236,11 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 		/*if( errno == EADDRINUSE ) {
 			printf("The server is already launched\n");
 		} else {*/
-			perror("bind()");
-			exit(errno);
+			writeToErr(file, "bind()");
 		/*}*/
 	}
 	if(listen(*(sock), MAX_PLAYER) == SOCKET_ERROR) {
-		perror("listen()");
-		exit(errno);
+		writeToErr(file, "listen()");
 	}
 }
 
@@ -230,14 +248,37 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port) {
  * Used to accept a socket.
  * Return the socket created or exit in case of error.
  */
-SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i) {
+SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i, FILE * file) {
 	SOCKET csock;
 	if((csock = accept(sock, (SOCKADDR *) csin, (socklen_t *) sinsize)) == -1) {
-		perror("accept()");
-		exit(errno);
+		writeToErr(file, "accept()");
 	}
 	buffer->status = 200;
 	sprintf(buffer->content, "Bienvenue sur notre Papayoo's party\nIl y a actuellement %d joueur(s) connectés\n", i + 1);
-	sendSocket(csock, buffer);
+	sendSocket(csock, buffer, file);
 	return csock;
+}
+
+/*
+ * Used to open a file in the specified mode.
+ * Return the FILE * created or exit in case of error.
+ */
+FILE *openFile(const char * name, const char * mode, FILE * file) {
+	FILE *fd;
+	if((fd = fopen(name, mode)) == NULL) {
+		writeToErr(file, "fopen()");
+	}
+}
+
+/*
+ * Used to write on the error file or stderr.
+ */
+void writeToErr(FILE * file, char * message) {
+	if(file == NULL) {
+		fprintf(stderr, "%s\n", message);
+		exit(errno);
+	} else {
+		fprintf(file, "%s\n", message);
+		exit(errno);
+	}
 }

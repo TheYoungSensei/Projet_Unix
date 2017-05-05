@@ -47,7 +47,9 @@ int main(int argc, char** argv) {
 		exit(0);
 	}
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
-
+	readSocket(sock, &buffer);
+	printf("%s\n", buffer.content);
+	fflush(stdin);
 	/* Getting the server response (Party Begin - Error)*/
 	/*
 	readSocket(sock, &buffer);
@@ -87,20 +89,19 @@ int keyboardReader(char** name){
 
 /*
  * Receive a message from the specified socket.
- * Returns 0 in case of success, -1 in case of EOF.
+ * Returns number of caracs read in case of success.
  * Exit in case of error.
  */
 int readSocket(SOCKET sock, message *  buffer) {
 	int n; /* Number of caracs get by recv */
-	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) < -1) {
-		if(errno == EOF) {
-			printf("Le serveur s'est malheureusement déconnecté\n");
-		} else {
-			perror("recv()");
-		}
+	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) == -1) {
+		perror("recv()");
+		exit(errno);
+	} else if (n == 0) {
+		printf("Le serveur s'est malheureusement déconnecté\n");
 		exit(errno);
 	}
-	return 0;
+	return n;
 	/* Could be improved */
 }
 
