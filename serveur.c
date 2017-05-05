@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 	int fd_stdin = fileno(stdin);
 	pid_t cpid;
 	const char *hostname = "127.0.0.1";
-	int sinsize, port, n = 0, i = 0, compteur, maxFd = sock, timedout, f_lock;
+	int i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
 	FILE * fderror = NULL;
 	/* Arguments  Management */
 	if(argc != 3) {
@@ -61,7 +61,9 @@ int main(int argc, char** argv) {
 	actInt.sa_handler = serverInterrupt;
 	actInt.sa_flags = 0;
 	sigemptyset(&act.sa_mask);
-	SYS(sigfillset(&set));
+	if(sigfillset(&set) == -1) {
+		writeToErr(fderror, "sigemptyset()");
+	}
 	SYS(sigdelset(&set, SIGALRM));
 	SYS(sigdelset(&set, SIGINT));
 	SYS(sigprocmask(SIG_BLOCK, &set, NULL));
@@ -70,78 +72,68 @@ int main(int argc, char** argv) {
 	/* Set Max Time for Select */
 	/* Begin Inscription */
 	while(1) {
+		if(timeoutInt == 1 && pseudosNbr > 1) {
+			printf("La partie va commencer\n");
+			break;
+		}
+		printf("pseudos : %d\n", pseudosNbr);
+		printf("time : %d\n", timeoutInt);
 		maxFd = sock;
 		tv.tv_sec = 3;
 		tv.tv_usec = 0;
-		/* First participant */
-		printf("i : %d\n", i);
-		/*if (i==0){
-			fprintf(stderr, "serverInt : %d\n", serverInt);
-			csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i, fderror);
-			i++;
-			continue;
-		}*/
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
-		for (compteur = 0 ; compteur < i; compteur++){
+		for (compteur = 0 ; compteur < acceptNbr; compteur++){
 			FD_SET(csock[compteur], &readfds);
 			if (csock[compteur]>maxFd) maxFd = csock[compteur];
 		}
 		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == -1){
 			if (errno == EINTR){
-				printf("La partie va commencer\n");
-				break;
+				if (serverInt == 1) {
+					printf("Fin du programme\n");
+					closesocket(sock);
+					for(compteur =0; compteur < acceptNbr; compteur++) {
+						closesocket(csock[compteur]);
+					}
+					exit(0);
+				} else if (timeoutInt == 1) {
+					//IGNORE
+					continue;
+				}
 			}
-			writeToErr(stderr, "select()");
+			writeToErr(fderror, "select()");
 		} else if(timedout == 0){
-			if(timeoutInt == 1) {
-				printf("La partie va commencer\n");
-				break;
-			} else if (serverInt == 1) {
-				printf("Fin du programme\n");
-				closesocket(sock);
-				for(compteur =0; compteur < MAX_PLAYER; compteur++) {
-					closesocket(csock[compteur]);
-				}
-				exit(0);
-			}
 		} else {
-			if(timeoutInt == 1) {
-				printf("La partie va commencer\n");
-				break;
-			} else if (serverInt == 1) {
-				printf("Fin du programme\n");
-				closesocket(sock);
-				for(compteur =0; compteur < MAX_PLAYER; compteur++) {
-					closesocket(csock[compteur]);
-				}
-				exit(0);
-			}
-
 			if (FD_ISSET(sock, &readfds)){
-				csock[i] = acceptSocket(sock, &csin, &sinsize, &buffer, i, fderror);
-				i++;
+				if (acceptNbr == 0) { /* Si le nombre de pseudos connus = 1 */
+					alarm(30);
+				}
+				csock[acceptNbr] = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr, fderror);
+				acceptNbr++;
 			} else {
-				for (compteur = 0 ; compteur < i; compteur++){
+				for (compteur = 0 ; compteur < acceptNbr; compteur++){
 					if(FD_ISSET(csock[compteur], &readfds)) {
 						n = readSocket(csock[compteur], &buffer, fderror);
-						if (n == 0) {//TODO change status -> DISCONNECT etc
-							csock[compteur] = csock[i];
-							i--;
+						if (n == 0) {//TODO change status -> DISCONNECT et
+							for(i = compteur; i < acceptNbr-1; i++) {
+								csock[i] = csock[i+1];
+								pseudos[i] = pseudos[i+1];	
+							} 
+							acceptNbr--;
+							pseudosNbr--;
 						} else {
-							if (1) { /* Si le nombre de pseudos connus = 1 */
-								alarm(30);
-							}
 							pseudos[compteur] = buffer.content;
+							pseudosNbr++;
 						}
 					}
 				}
 			}
 		}
 	}
-	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
-
-	for(compteur = 0; compteur < MAX_PLAYER; compteur++) {
+	if(sigprocmask(SIG_UNBLOCK, &set, NULL) == -1) {
+		writeToErr(fderror, "sigprocmask");
+	}
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		buffer.status = 200;
 		strcpy(buffer.content, "Lancement de la partie");
 		sendSocket(csock[compteur], &buffer, stderr);
@@ -164,8 +156,8 @@ int main(int argc, char** argv) {
 
 	}*/
 	closesocket(sock);
-	for(i =0; i < MAX_PLAYER; i++) {
-		closesocket(csock[i]);
+	for(compteur =0; compteur < acceptNbr; compteur++) {
+		closesocket(csock[compteur]);
 	}
 }
 
