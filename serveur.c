@@ -12,7 +12,6 @@
 
 #include "global.h"
 #include "serveur.h"
-#define SYS(call) ((call) == -1) ? perror(#call " : ERROR "), exit(1) : 0
 
 static int timeoutInt = 0;
 static int serverInt = 0;
@@ -60,15 +59,27 @@ int main(int argc, char** argv) {
 	act.sa_flags = 0;
 	actInt.sa_handler = serverInterrupt;
 	actInt.sa_flags = 0;
-	sigemptyset(&act.sa_mask);
-	if(sigfillset(&set) == -1) {
+	if (sigemptyset(&act.sa_mask) == -1){
 		writeToErr(fderror, "sigemptyset()");
 	}
-	SYS(sigdelset(&set, SIGALRM));
-	SYS(sigdelset(&set, SIGINT));
-	SYS(sigprocmask(SIG_BLOCK, &set, NULL));
-	SYS(sigaction(SIGALRM, &act, NULL));
-	SYS(sigaction(SIGINT, &actInt, NULL));
+	if(sigfillset(&set) == -1) {
+		writeToErr(fderror, "sigfillset()");
+	}
+	if(sigdelset(&set, SIGALRM) == -1){
+		writeToErr(fderror, "sigdelset()");
+	}
+	if(sigdelset(&set, SIGINT) == -1){
+		writeToErr(fderror, "sigdelset()");
+	}
+	if(sigprocmask(SIG_BLOCK, &set, NULL) == -1){
+		writeToErr(fderror, "sigprocmask()");
+	}
+	if(sigaction(SIGALRM, &act, NULL) == -1){
+		writeToErr(fderror, "sigaction()");
+	}
+	if(sigaction(SIGINT, &actInt, NULL) == -1){
+		writeToErr(fderror, "sigaction()");
+	}
 	/* Set Max Time for Select */
 	/* Begin Inscription */
 	while(1) {
@@ -114,11 +125,11 @@ int main(int argc, char** argv) {
 				for (compteur = 0 ; compteur < acceptNbr; compteur++){
 					if(FD_ISSET(csock[compteur], &readfds)) {
 						n = readSocket(csock[compteur], &buffer, fderror);
-						if (n == 0) {//TODO change status -> DISCONNECT et
+						if (n == 0) {//TODO change status -> DISCONNECT etc
 							for(i = compteur; i < acceptNbr-1; i++) {
 								csock[i] = csock[i+1];
-								pseudos[i] = pseudos[i+1];	
-							} 
+								pseudos[i] = pseudos[i+1];
+							}
 							acceptNbr--;
 							pseudosNbr--;
 						} else {
@@ -138,7 +149,7 @@ int main(int argc, char** argv) {
 		strcpy(buffer.content, "Lancement de la partie");
 		sendSocket(csock[compteur], &buffer, stderr);
 	}
-	/* NOT DONE --- WORK TO DO */
+	/*  TO DO */
 	/*if (i == MAX_PLAYER){
 		buffer.status = 500;
 		strcpy(buffer.content, "La partie est pleine, vous ne pouvez plus la rejoindre !\n");
@@ -185,7 +196,7 @@ int readSocket(SOCKET sock, message *  buffer, FILE * file) {
  * Send a message to the specified socket.
  * Exit in case of error.
  */
-int sendSocket(SOCKET sock, message * buffer, FILE * file) {
+void sendSocket(SOCKET sock, message * buffer, FILE * file) {
 	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
 		writeToErr(file, "send()");
 	}
@@ -204,6 +215,7 @@ void lock(FILE * file) {
 	}
 	if (flock(f_lock, LOCK_EX | LOCK_NB) == -1){
 		if( errno == EWOULDBLOCK ){
+
 			writeToErr(file, "The server is already launched");
 		} else {
 			writeToErr(file, "flock");
@@ -228,7 +240,7 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file) {
 		/*if( errno == EADDRINUSE ) {
 			printf("The server is already launched\n");
 		} else {*/
-			writeToErr(file, "bind()");
+		writeToErr(file, "bind()");
 		/*}*/
 	}
 	if(listen(*(sock), MAX_PLAYER) == SOCKET_ERROR) {
@@ -260,17 +272,21 @@ FILE *openFile(const char * name, const char * mode, FILE * file) {
 	if((fd = fopen(name, mode)) == NULL) {
 		writeToErr(file, "fopen()");
 	}
+	return fd;
 }
 
 /*
  * Used to write on the error file or stderr.
  */
 void writeToErr(FILE * file, char * message) {
-	if(file == NULL) {
-		fprintf(stderr, "%s\n", message);
-		exit(errno);
+	if (file == NULL){
+		fprintf(stderr, "%s : %s\n", message, strerror(errno));
+
 	} else {
-		fprintf(file, "%s\n", message);
-		exit(errno);
+		fprintf(file, "%s : %s\n", message, strerror(errno));
 	}
+	exit(errno);
 }
+
+
+

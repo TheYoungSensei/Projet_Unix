@@ -75,14 +75,21 @@ int main(int argc, char** argv) {
 /*
  * Used to read an input from the keyboard.
  */
-int keyboardReader(char** name){
+void keyboardReader(char** name){
 	if(((*name) = (char *) malloc(sizeof(char) * NAME_LENGTH)) == NULL) {
 		perror("malloc()");
 		exit(errno);
 	}
-	if (fgets(*(name), NAME_LENGTH, stdin) == NULL){
+	if ((fgets(*(name), NAME_LENGTH, stdin)) == NULL){
 		fprintf(stderr, "fgets problem");
 		exit(EXIT_FAILURE);
+	}
+	if((*name)[strlen(*name)-1] != '\n'){
+		perror("Trop grande ligne lue\n");
+		while((*name)[strlen(*name) -1] != '\n'){
+			fgets(*(name), NAME_LENGTH, stdin);
+			exit(11);
+		}
 	}
 	fflush(stdin);
 }
@@ -109,7 +116,7 @@ int readSocket(SOCKET sock, message *  buffer) {
  * Send a message to the specified socket.
  * Exit in case of error.
  */
-int sendSocket(SOCKET sock, message * buffer) {
+void sendSocket(SOCKET sock, message * buffer) {
 	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
 		perror("send()");
 		exit(errno);
@@ -139,3 +146,4 @@ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	return sock;
 }
+

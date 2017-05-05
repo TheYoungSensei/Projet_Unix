@@ -29,6 +29,6 @@
 #endif
 
 SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);
-int keyboardReader(char** name);
+void keyboardReader(char** name);
 int readSocket(SOCKET sock, message * buffer);
-int sendSocket(SOCKET sock, message * buffer);
+void sendSocket(SOCKET sock, message * buffer);
