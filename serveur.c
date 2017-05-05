@@ -29,16 +29,13 @@ int main(int argc, char** argv) {
 	SOCKET sock;
 	SOCKADDR_IN sin, csin;
 	message buffer;
-	SOCKET csock[MAX_PLAYER];
-	char * pseudos[MAX_PLAYER];
+	player * players;
 	struct timeval tv;
 	struct sigaction act, actInt;
 	sigset_t set;
 	fd_set readfds;
-	int fd_stdin = fileno(stdin);
-	pid_t cpid;
 	const char *hostname = "127.0.0.1";
-	int i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
+	int notNull, i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
 	FILE * fderror = NULL;
 	/* Arguments  Management */
 	if(argc != 3) {
@@ -80,6 +77,9 @@ int main(int argc, char** argv) {
 	if(sigaction(SIGINT, &actInt, NULL) == -1){
 		writeToErr(fderror, "sigaction()");
 	}
+	if((players = (player*) malloc(sizeof(player) * MAX_PLAYER)) == NULL) {
+		writeToErr(fderror, "malloc()");
+	}
 	/* Set Max Time for Select */
 	/* Begin Inscription */
 	while(1) {
@@ -87,28 +87,29 @@ int main(int argc, char** argv) {
 			printf("La partie va commencer\n");
 			break;
 		}
-		printf("pseudos : %d\n", pseudosNbr);
-		printf("time : %d\n", timeoutInt);
+		/* Parametring select */
 		maxFd = sock;
 		tv.tv_sec = 3;
 		tv.tv_usec = 0;
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		for (compteur = 0 ; compteur < acceptNbr; compteur++){
-			FD_SET(csock[compteur], &readfds);
-			if (csock[compteur]>maxFd) maxFd = csock[compteur];
+			FD_SET(players[compteur].sock, &readfds);
+			if (players[compteur].sock>maxFd) maxFd = players[compteur].sock;
 		}
+
 		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == -1){
 			if (errno == EINTR){
 				if (serverInt == 1) {
+					/* CTRL-C as been caucght */
 					printf("Fin du programme\n");
 					closesocket(sock);
 					for(compteur =0; compteur < acceptNbr; compteur++) {
-						closesocket(csock[compteur]);
+						closesocket(players[compteur].sock);
 					}
 					exit(0);
 				} else if (timeoutInt == 1) {
-					//IGNORE
+					/* SIGALRM as been caucght */
 					continue;
 				}
 			}
@@ -119,21 +120,38 @@ int main(int argc, char** argv) {
 				if (acceptNbr == 0) { /* Si le nombre de pseudos connus = 1 */
 					alarm(30);
 				}
-				csock[acceptNbr] = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr, fderror);
+				players[acceptNbr].pseudoKnown = 0;
+				players[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr, fderror);
 				acceptNbr++;
 			} else {
+
 				for (compteur = 0 ; compteur < acceptNbr; compteur++){
-					if(FD_ISSET(csock[compteur], &readfds)) {
-						n = readSocket(csock[compteur], &buffer, fderror);
-						if (n == 0) {//TODO change status -> DISCONNECT etc
+					if(FD_ISSET(players[compteur].sock, &readfds)) {
+						n = readSocket(players[compteur].sock, &buffer, fderror);
+						if (n == 0) {
+							buffer.status = 200;
+							notNull = 0;
+							if(players[compteur].pseudoKnown != 0) {
+								sprintf(buffer.content, "Déconnexion de : %s", players[compteur].pseudo);
+								notNull = 1;
+							}
 							for(i = compteur; i < acceptNbr-1; i++) {
-								csock[i] = csock[i+1];
-								pseudos[i] = pseudos[i+1];
+									players[i] = players[i+1];
 							}
 							acceptNbr--;
+							if(notNull == 0) return;
 							pseudosNbr--;
+							for(i = 0 ;i < acceptNbr; i++) {
+								sendSocket(players[i].sock, &buffer, fderror);
+							}
 						} else {
-							pseudos[compteur] = buffer.content;
+							/* Adding the pseudo of a player */
+							players[compteur].pseudoKnown = 1;
+							if((players[compteur].pseudo = (char *) malloc(sizeof(char) * n)) == NULL) {
+								writeToErr(fderror, "malloc()");
+							}
+							strcpy(players[compteur].pseudo, buffer.content);
+							players[compteur].pseudo[strlen(players[compteur].pseudo) - 1] = '\0';
 							pseudosNbr++;
 						}
 					}
@@ -144,31 +162,28 @@ int main(int argc, char** argv) {
 	if(sigprocmask(SIG_UNBLOCK, &set, NULL) == -1) {
 		writeToErr(fderror, "sigprocmask");
 	}
+	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		buffer.status = 200;
+		if(players[compteur].pseudoKnown == 0) {
+			buffer.status = 201;
+			strcpy(buffer.content, "Délai écoulé");
+			sendSocket(players[compteur].sock, &buffer, fderror);
+			closesocket(players[compteur].sock);
+			for(i = compteur; i < acceptNbr-1; i++) {
+					players[i] = players[i+1];
+			}
+			acceptNbr--;
+		}
+	}
+	/* Sending the game lauching to all users */
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
+		buffer.status = 201;
 		strcpy(buffer.content, "Lancement de la partie");
-		sendSocket(csock[compteur], &buffer, stderr);
+		sendSocket(players[compteur].sock, &buffer, fderror);
 	}
-	/*  TO DO */
-	/*if (i == MAX_PLAYER){
-		buffer.status = 500;
-		strcpy(buffer.content, "La partie est pleine, vous ne pouvez plus la rejoindre !\n");
-		sendSocket(csock[i], &buffer);
-	}
-	buffer.status = 1;
-	memset(buffer.content, 0, sizeof buffer.content);
-
-	sprintf(buffer.content, "La partie commence. Il y a au moins %d joueurs.\n", i);
-	for (compteur = 0 ; compteur < i; compteur++)
-	{
-		sendSocket(csock[compteur], &buffer);
-		readSocket(csock[compteur], &buffer);
-		printf("Le joueur a répondu : %s\n", buffer.content);
-
-	}*/
 	closesocket(sock);
 	for(compteur =0; compteur < acceptNbr; compteur++) {
-		closesocket(csock[compteur]);
+		closesocket(players[compteur].sock);
 	}
 }
 
@@ -287,6 +302,3 @@ void writeToErr(FILE * file, char * message) {
 	}
 	exit(errno);
 }
-
-
-

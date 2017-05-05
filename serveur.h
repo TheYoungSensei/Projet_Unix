@@ -33,6 +33,12 @@
 
 #endif
 
+typedef struct player {
+  int pseudoKnown;
+  char * pseudo;
+  SOCKET sock;
+}player;
+
 int readSocket(SOCKET sock, message * buffer, FILE * file);
 void sendSocket(SOCKET sock, message * buffer, FILE * file);
 void lock(FILE * file);
@@ -40,4 +46,3 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file);
 SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i, FILE * file);
 FILE *openFile(const char * name, const char * mode, FILE * file);
 void writeToErr(FILE * file, char * message);
-

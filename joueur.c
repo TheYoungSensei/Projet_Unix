@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
 	readSocket(sock, &buffer);
 	/* Getting the userName */
 	printf("%s", buffer.content);
+	printf("Veuillez entrer votre pseudo : \n");
 	fflush(stdin);
 	keyboardReader(&name);
 	strcpy(buffer.content, name);
@@ -47,28 +48,14 @@ int main(int argc, char** argv) {
 		exit(0);
 	}
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
-	readSocket(sock, &buffer);
-	printf("%s\n", buffer.content);
-	fflush(stdin);
-	/* Getting the server response (Party Begin - Error)*/
-	/*
-	readSocket(sock, &buffer);
-	printf("%s", buffer.content);
-	switch(buffer.status){
-		case 201 :
-			buffer.status = 200;
-			memset(buffer.content, 0, sizeof buffer.content);
-			sprintf(buffer.content, "Selection des cartes = BLABLA\n");
-			sendSocket(sock, &buffer);
-			printf("message envoyé\n");
+	while(1) {
+		readSocket(sock, &buffer);
+		printf("%s\n", buffer.content);
+		fflush(stdin);
+		if(buffer.status == 201) {
 			break;
-		default :
-			buffer.status = 400;
-			memset(buffer.content, 0, sizeof buffer.content);
-			sprintf(buffer.content, "Incomprehension du status du message\n");
-			sendSocket(sock, &buffer);
-			printf("erreur envoyée\n");
-	}*/
+		}
+	}
 	closesocket(sock);
 }
 
@@ -146,4 +133,3 @@ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	return sock;
 }
-
