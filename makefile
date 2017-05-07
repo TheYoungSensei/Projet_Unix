@@ -4,17 +4,23 @@ CC = gcc
 
 normal : $(TARGET)
 
-serveur : serveur.o
-	$(CC) serveur.o -o serveur
+serveur : serveur.o global.o socket.o
+	$(CC) serveur.o global.o socket.o -o serveur
 
-joueur : joueur.o
-	$(CC) joueur.o -o joueur
+joueur : joueur.o global.o socket.o
+	$(CC) joueur.o global.o socket.o -o joueur
 
-serveur.o : serveur.h global.h serveur.c
+serveur.o : serveur.h global.h socket.h serveur.c
 	$(CC) -c serveur.c
 
-joueur.o : joueur.h global.h joueur.c
+joueur.o : joueur.h global.h socket.h joueur.c
 	$(CC) -c joueur.c
+
+socket.o : global.h socket.h socket.c
+	$(CC) -c socket.c
+
+global.o : global.h global.c
+	$(CC) -c global.c
+	
 clean :
 	$(RM) $(TARGET)
-

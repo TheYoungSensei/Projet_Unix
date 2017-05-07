@@ -12,6 +12,7 @@
 
 #include "global.h"
 #include "joueur.h"
+#include "socket.h"
 
 int main(int argc, char** argv) {
 	SOCKET sock;
@@ -34,15 +35,15 @@ int main(int argc, char** argv) {
 		exit(errno);
 	}
 	/* Showing Welcome message */
-	readSocket(sock, &buffer);
+	readJ(sock, &buffer);
 	printf("%s", buffer.content);
-	/* Reading the userName */
+	/* readJing the userName */
 	printf("Veuillez entrer votre pseudo : \n");
 	fflush(stdin);
 	keyboardReader(&name);
 	strcpy(buffer.content, name);
 	buffer.status = 200;
-	sendSocket(sock, &buffer);
+	sendJ(sock, &buffer);
 	if (buffer.status == 500){
 		/* TO DISCUSS */
 		exit(0);
@@ -50,18 +51,18 @@ int main(int argc, char** argv) {
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
 	/* Future interactions with the serveur */
 	while(1) {
-		readSocket(sock, &buffer);
+		readJ(sock, &buffer);
 		printf("%s\n", buffer.content);
 		fflush(stdin);
 		if(buffer.status == 201) {
 			break;
 		}
 	}
-	closesocket(sock);
+	close(sock);
 }
 
 /*
- * Used to read an input from the keyboard.
+ * Used to readJ an input from the keyboard.
  */
 void keyboardReader(char** name){
 	if(((*name) = (char *) malloc(sizeof(char) * NAME_LENGTH)) == NULL) {
@@ -84,32 +85,25 @@ void keyboardReader(char** name){
 
 /*
  * Receive a message from the specified socket.
- * Returns number of caracs read in case of success.
+ * Returns number of caracs readJ in case of success.
  * Exit in case of error.
  */
-int readSocket(SOCKET sock, message *  buffer) {
+int readJ(SOCKET sock, message *  buffer) {
 	int n; /* Number of caracs get by recv */
-	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) == -1) {
-		perror("recv()");
-		exit(errno);
-	} else if (n == 0) {
+	n = readSocket(sock, buffer, NULL);
+	if (n == 0) {
 		printf("Le serveur s'est malheureusement déconnecté\n");
 		exit(errno);
 	}
 	return n;
-	/* May be improved */
 }
 
 /*
- * Send a message to the specified socket.
+ * sendJ a message to the specified socket.
  * Exit in case of error.
  */
-void sendSocket(SOCKET sock, message * buffer) {
-	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
-		perror("send()");
-		exit(errno);
-	}
-	/* May be improved */
+void sendJ(SOCKET sock, message * buffer) {
+	sendSocket(sock, buffer, NULL);
 }
 
 /*

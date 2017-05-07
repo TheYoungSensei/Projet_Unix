@@ -12,6 +12,7 @@
 
 #include "global.h"
 #include "serveur.h"
+#include "socket.h"
 
 static int timeoutInt = 0;
 static int serverInt = 0;
@@ -189,38 +190,9 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		closesocket(players[compteur].sock);
 	}
+
 }
 
-
-
-
-/*
- * Receive a message from the specified socket.
- * Returns numbers of caracs readed.
- * Exit in case of error.
- */
-int readSocket(SOCKET sock, message *  buffer, FILE * file) {
-	int n; /* Number of caracs get by recv */
-	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) < -1) {
-		if(errno == EOF) {
-			return -1; /* Can be replaced with player.disconnect */
-		}
-		writeToErr(file, "recv()");
-	}
-	return n;
-	/* May be improved */
-}
-
-/*
- * Send a message to the specified socket.
- * Exit in case of error.
- */
-void sendSocket(SOCKET sock, message * buffer, FILE * file) {
-	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
-		writeToErr(file, "send()");
-	}
-	/* May be improved */
-}
 
 /*
  * Used to make the server reacting like a singleton.
@@ -292,17 +264,4 @@ FILE *openFile(const char * name, const char * mode, FILE * file) {
 		writeToErr(file, "fopen()");
 	}
 	return fd;
-}
-
-/*
- * Used to write on the error file or stderr.
- */
-void writeToErr(FILE * file, char * message) {
-	if (file == NULL){
-		fprintf(stderr, "%s : %s\n", message, strerror(errno));
-
-	} else {
-		fprintf(file, "%s : %s\n", message, strerror(errno));
-	}
-	exit(errno);
 }
