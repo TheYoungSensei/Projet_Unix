@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 	int n = 0, port;
 	SOCKADDR_IN sin = { 0 };
 	if(argc != 3) {
-		fprintf(stderr, "joueur [port] [ipHost]\n");
+		fprintf(stderr, "joueur <port> <ipHost>\n");
 		return EXIT_ERROR;
 	}
 	port = atoi(*++argv);
@@ -35,8 +35,8 @@ int main(int argc, char** argv) {
 	}
 	/* Showing Welcome message */
 	readSocket(sock, &buffer);
-	/* Getting the userName */
 	printf("%s", buffer.content);
+	/* Reading the userName */
 	printf("Veuillez entrer votre pseudo : \n");
 	fflush(stdin);
 	keyboardReader(&name);
@@ -48,6 +48,7 @@ int main(int argc, char** argv) {
 		exit(0);
 	}
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
+	/* Future interactions with the serveur */
 	while(1) {
 		readSocket(sock, &buffer);
 		printf("%s\n", buffer.content);
@@ -96,7 +97,7 @@ int readSocket(SOCKET sock, message *  buffer) {
 		exit(errno);
 	}
 	return n;
-	/* Could be improved */
+	/* May be improved */
 }
 
 /*
@@ -108,7 +109,7 @@ void sendSocket(SOCKET sock, message * buffer) {
 		perror("send()");
 		exit(errno);
 	}
-	/* Could be improved */
+	/* May be improved */
 }
 
 /*

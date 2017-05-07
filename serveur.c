@@ -15,7 +15,6 @@
 
 static int timeoutInt = 0;
 static int serverInt = 0;
-
 void timeout(int bla){
 	timeoutInt = 1;
 }
@@ -37,9 +36,9 @@ int main(int argc, char** argv) {
 	const char *hostname = "127.0.0.1";
 	int notNull, i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
 	FILE * fderror = NULL;
-	/* Arguments  Management */
+	/* Arguments management */
 	if(argc != 3) {
-		fprintf(stderr, "serveur [numPort] [stderr]\n");
+		fprintf(stderr, "serveur <numPort> <stderr>\n");
 		return EXIT_ERROR;
 	}
 	port = atoi(*++argv);
@@ -48,10 +47,10 @@ int main(int argc, char** argv) {
 	}
 	/* Lock */
 	lock(fderror);
-	/* Server Initialisation */
+	/* Server's initialisation */
 	serverInit(&sock, &sin, port, fderror);
 	sinsize = sizeof csin;
-	/* Sigaction Initialisation */
+	/* Sigaction's initialisation */
 	act.sa_handler = timeout;
 	act.sa_flags = 0;
 	actInt.sa_handler = serverInterrupt;
@@ -80,28 +79,29 @@ int main(int argc, char** argv) {
 	if((players = (player*) malloc(sizeof(player) * MAX_PLAYER)) == NULL) {
 		writeToErr(fderror, "malloc()");
 	}
-	/* Set Max Time for Select */
-	/* Begin Inscription */
+	/* Parametring registration's select */
+	maxFd = sock;
+	tv.tv_sec = 3;
+	tv.tv_usec = 0;
+	/* Begin registration's while */
 	while(1) {
+		/* After 30 sec if there are 2 players or more */
 		if(timeoutInt == 1 && pseudosNbr > 1) {
 			printf("La partie va commencer\n");
 			break;
 		}
-		/* Parametring select */
-		maxFd = sock;
-		tv.tv_sec = 3;
-		tv.tv_usec = 0;
+		/* Parametring registration's select */
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
+		/* Add every player to the select */
 		for (compteur = 0 ; compteur < acceptNbr; compteur++){
 			FD_SET(players[compteur].sock, &readfds);
 			if (players[compteur].sock>maxFd) maxFd = players[compteur].sock;
 		}
-
 		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == -1){
 			if (errno == EINTR){
 				if (serverInt == 1) {
-					/* CTRL-C as been caucght */
+					/* CTRL-C as been caught */
 					printf("Fin du programme\n");
 					closesocket(sock);
 					for(compteur =0; compteur < acceptNbr; compteur++) {
@@ -114,22 +114,21 @@ int main(int argc, char** argv) {
 				}
 			}
 			writeToErr(fderror, "select()");
-		} else if(timedout == 0){
-		} else {
+		} else if (timedout != 0) {
 			if (FD_ISSET(sock, &readfds)){
-				if (acceptNbr == 0) { /* Si le nombre de pseudos connus = 1 */
+				if (acceptNbr == 0) { /* If known pseudos's number = 1 */
 					alarm(30);
 				}
 				players[acceptNbr].pseudoKnown = 0;
 				players[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr, fderror);
 				acceptNbr++;
 			} else {
-
 				for (compteur = 0 ; compteur < acceptNbr; compteur++){
 					if(FD_ISSET(players[compteur].sock, &readfds)) {
 						n = readSocket(players[compteur].sock, &buffer, fderror);
 						if (n == 0) {
 							buffer.status = 200;
+							/* notNull -> Allow us to know whether we have to remove the pseudo's number */
 							notNull = 0;
 							if(players[compteur].pseudoKnown != 0) {
 								sprintf(buffer.content, "Déconnexion de : %s", players[compteur].pseudo);
@@ -139,7 +138,7 @@ int main(int argc, char** argv) {
 									players[i] = players[i+1];
 							}
 							acceptNbr--;
-							if(notNull == 0) return;
+							if(notNull == 0) break;
 							pseudosNbr--;
 							for(i = 0 ;i < acceptNbr; i++) {
 								sendSocket(players[i].sock, &buffer, fderror);
@@ -159,6 +158,7 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+	/* Unblocking signals */
 	if(sigprocmask(SIG_UNBLOCK, &set, NULL) == -1) {
 		writeToErr(fderror, "sigprocmask");
 	}
@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		if(players[compteur].pseudoKnown == 0) {
 			buffer.status = 201;
-			strcpy(buffer.content, "Délai écoulé");
+			strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
 			sendSocket(players[compteur].sock, &buffer, fderror);
 			closesocket(players[compteur].sock);
 			for(i = compteur; i < acceptNbr-1; i++) {
@@ -175,14 +175,18 @@ int main(int argc, char** argv) {
 			acceptNbr--;
 		}
 	}
-	/* Sending the game lauching to all users */
+	/* Notifying all users about the game's beginning */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		buffer.status = 201;
-		strcpy(buffer.content, "Lancement de la partie");
+		strcpy(buffer.content, "Lancement de la partie !");
 		sendSocket(players[compteur].sock, &buffer, fderror);
 	}
+
+/* Future game's handeling */
+
+	/* Closing every socket  */
 	closesocket(sock);
-	for(compteur =0; compteur < acceptNbr; compteur++) {
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		closesocket(players[compteur].sock);
 	}
 }
@@ -204,7 +208,7 @@ int readSocket(SOCKET sock, message *  buffer, FILE * file) {
 		writeToErr(file, "recv()");
 	}
 	return n;
-	/* Could be improved */
+	/* May be improved */
 }
 
 /*
@@ -215,7 +219,7 @@ void sendSocket(SOCKET sock, message * buffer, FILE * file) {
 	if(send(sock, buffer, sizeof((*(buffer))) -1, 0) < 0) {
 		writeToErr(file, "send()");
 	}
-	/* Could be improved */
+	/* May be improved */
 }
 
 /*
@@ -224,7 +228,7 @@ void sendSocket(SOCKET sock, message * buffer, FILE * file) {
  */
 void lock(FILE * file) {
 	int f_lock;
-	//flock to avoid double server opening
+	/* flock to avoid double server opening */
 	if ((f_lock = open("serveur.lock", O_RDWR)) == -1){
 		writeToErr(file, "open()");
 	}
@@ -252,11 +256,11 @@ void serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file) {
 	sin->sin_family = AF_INET;
 	sin->sin_port = htons(port);
 	if(bind(*(sock), (SOCKADDR *) sin, sizeof *(sin)) == SOCKET_ERROR) {
-		/*if( errno == EADDRINUSE ) {
+		if( errno == EADDRINUSE ) {
 			printf("The server is already launched\n");
-		} else {*/
+		} else {
 		writeToErr(file, "bind()");
-		/*}*/
+		}
 	}
 	if(listen(*(sock), MAX_PLAYER) == SOCKET_ERROR) {
 		writeToErr(file, "listen()");
@@ -273,7 +277,7 @@ SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * bu
 		writeToErr(file, "accept()");
 	}
 	buffer->status = 200;
-	sprintf(buffer->content, "Bienvenue sur notre Papayoo's party\nIl y a actuellement %d joueur(s) connectés\n", i + 1);
+	sprintf(buffer->content, "Bienvenue sur le jeu de Papayoo du groupe manietSacre.\nIl y a actuellement %d joueur(s) connecté(s).\n", i + 1);
 	sendSocket(csock, buffer, file);
 	return csock;
 }
