@@ -17,7 +17,6 @@
 
 #endif
 
-SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);
 void keyboardReader(char** name);
 int readJ(SOCKET sock, message *  buffer);
 void sendJ(SOCKET sock, message * buffer);

@@ -24,13 +24,13 @@ int main(int argc, char** argv) {
 	SOCKADDR_IN sin = { 0 };
 	if(argc != 3) {
 		fprintf(stderr, "joueur <port> <ipHost>\n");
-		return EXIT_ERROR;
+		return ERROR;
 	}
 	port = atoi(*++argv);
 	hostname = *++argv;
 	sock = joueurInit(hostname, &sin, port);
 	/* Trying to connect to the server */
-	if(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)) == SOCKET_ERROR) {
+	if(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)) == ERROR) {
 		perror("connect()");
 		exit(errno);
 	}
@@ -104,27 +104,4 @@ int readJ(SOCKET sock, message *  buffer) {
  */
 void sendJ(SOCKET sock, message * buffer) {
 	sendSocket(sock, buffer, NULL);
-}
-
-/*
- * Used to initialize the server.
- */
-SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
-	struct hostent *hostinfo = NULL;
-	SOCKET sock;
-	/* Server Initialisation  */
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(sock == INVALID_SOCKET) {
-		perror("socket()");
-		exit(errno);
-	}
-	hostinfo = gethostbyname(hostname);
-	if(hostinfo == NULL) {
-		fprintf(stderr, "Unknown host %s.\n", hostname);
-		exit(EXIT_FAILURE);
-	}
-	sin->sin_addr = *(IN_ADDR *) hostinfo->h_addr;
-	sin->sin_port = htons(port);
-	sin->sin_family = AF_INET;
-	return sock;
 }

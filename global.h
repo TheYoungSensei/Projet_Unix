@@ -14,9 +14,9 @@
 
 #ifndef GLOBALH_H
 #define GLOBALH_H
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
-#define EXIT_ERROR -1
+#define ERROR -1
+#define MAX_PLAYER 4
+#define ERRNO errno
 
 
 #include <sys/types.h>

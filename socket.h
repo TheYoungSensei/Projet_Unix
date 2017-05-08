@@ -14,6 +14,12 @@
  #ifndef JOUEURH_H
  #define JOUEURH_H
 
- #define closesocket(s) close(s)
 
  #endif
+
+ #define closesocket(s) close(s)
+ int readSocket(SOCKET sock, message * buffer);
+ int sendSocket(SOCKET sock, message * buffer);
+ int serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file);
+ SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i, FILE * file);
+ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);

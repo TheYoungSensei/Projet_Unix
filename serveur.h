@@ -13,9 +13,7 @@
 #ifndef SERVEURH_H
 #define SERVEURH_H
 
-#define MAX_PLAYER 4
-
-#endif
+#define SYS(call) ((call) == -1) ? exit(1) : 0
 
 typedef struct player {
   int pseudoKnown;
@@ -23,8 +21,9 @@ typedef struct player {
   SOCKET sock;
 }player;
 
+
+#endif
+
 void lock(FILE * file);
-void serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file);
-SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i, FILE * file);
 FILE *openFile(const char * name, const char * mode, FILE * file);
-void writeToErr(FILE * file, char * message);
+void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set, FILE * fderror);

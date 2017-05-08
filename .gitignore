@@ -1,0 +1,6 @@
+global.o
+joueur
+joueur.o
+serveur
+serveur.o
+socket.o

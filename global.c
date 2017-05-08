@@ -23,5 +23,4 @@ void writeToErr(FILE * file, char * message) {
 	} else {
 		fprintf(file, "%s : %s\n", message, strerror(errno));
 	}
-	exit(errno);
 }
