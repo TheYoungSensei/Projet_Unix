@@ -17,12 +17,11 @@
 #include "socket.h"
 #include "sharedMemory.h"
 
-typedef struct player {
+typedef struct client {
   int pseudoKnown;
   char * pseudo;
   SOCKET sock;
-}player;
-
+} client;
 
 #endif
 

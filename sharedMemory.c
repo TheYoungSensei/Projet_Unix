@@ -47,8 +47,9 @@ semaphore sembufInit() {
   return sem;
 }
 
-int lecteur (semaphore *sem, char **nbLecteur, memory *shm) {
-  memory tmp;
+int lecteurPlayers(semaphore *sem, char **nbLecteur, memory *shm) {
+  int i;
+  int nbPlayers = getNbPlayers(sem, nbLecteur, shm);
   while(TRUE) {
     semDown(sem, 0);
     sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) + 1));
@@ -56,9 +57,9 @@ int lecteur (semaphore *sem, char **nbLecteur, memory *shm) {
       semDown(sem, 1);
     }
     semUp(sem, 0);
-    /*for(tmp = (*shm); (*tmp) != NULL; tmp++) {
-      printf("%s\n", tmp);
-    }*/
+    for(i = 0; i < nbPlayers; i++) {
+      printf("%s ayant : %d points\n", shm->players[i].pseudo, shm->players[i].score);
+    }
     semDown(sem, 0);
     sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
     if(atoi((*nbLecteur)) == 0){
@@ -70,9 +71,96 @@ int lecteur (semaphore *sem, char **nbLecteur, memory *shm) {
 
 }
 
-void redacteur(semaphore *sem, memory shm, memory ajout) {
+int lecteurCards(semaphore *sem, char **nbLecteur, memory *shm) {
+  int i;
+  int nbCards = getNbCards(sem, nbLecteur, shm);
+  while(TRUE) {
+    semDown(sem, 0);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) + 1));
+    if(atoi((*nbLecteur)) == 1) {
+      semDown(sem, 1);
+    }
+    semUp(sem, 0);
+    for(i = 0; i < nbCards; i++) {
+      printf("%d de %c\n", shm->cards[i].value, shm->cards[i].color);
+    }
+    semDown(sem, 0);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
+    if(atoi((*nbLecteur)) == 0){
+      semUp(sem, 1);
+    }
+    semUp(sem, 0);
+    return 0;
+  }
+}
+
+int getNbPlayers(semaphore *sem, char **nbLecteur, memory *shm) {
+  int tmp;
+  while(TRUE) {
+    semDown(sem, 0);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) + 1));
+    if(atoi((*nbLecteur)) == 1) {
+      semDown(sem, 1);
+    }
+    semUp(sem, 0);
+    tmp = shm->nbPlayers;
+    semDown(sem, 0);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
+    if(atoi((*nbLecteur)) == 0){
+      semUp(sem, 1);
+    }
+    semUp(sem, 0);
+    return tmp;
+  }
+}
+
+int getNbCards(semaphore *sem, char **nbLecteur, memory *shm) {
+  int tmp;
+  while(TRUE) {
+    semDown(sem, 0);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) + 1));
+    if(atoi((*nbLecteur)) == 1) {
+      semDown(sem, 1);
+    }
+    semUp(sem, 0);
+    tmp = shm->nbCards;
+    semDown(sem, 0);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
+    if(atoi((*nbLecteur)) == 0){
+      semUp(sem, 1);
+    }
+    semUp(sem, 0);
+    return tmp;
+  }
+}
+
+
+void addCard(semaphore *sem, char **nbLecteur,  memory *shm, card card) {
+  int nbCards = getNbCards(sem, nbLecteur, shm);
   semDown(sem, 1);
+  shm->cards[nbCards] = card;
+  shm->nbCards = nbCards + 1;
   /*ecrireDonnees();*/
+  semUp(sem, 1);
+}
+
+void addPlayer(semaphore *sem, char **nbLecteur,  memory *shm, player player) {
+  int nbPlayers = getNbPlayers(sem, nbLecteur, shm);
+  semDown(sem, 1);
+  shm->players[nbPlayers] = player;
+  shm->nbPlayers = nbPlayers + 1;
+  /*ecrireDonnees();*/
+  semUp(sem, 1);
+}
+
+void removePlayer(semaphore *sem, char **nbLecteur,  memory *shm, int position) {
+  int nbPlayers = getNbPlayers(sem, nbLecteur, shm);
+  int i;
+  semDown(sem, 1);
+  for(i = position; i < nbPlayers - 1; i++) {
+      shm->players[i] = shm->players[i + 1];
+  }
+  shm->nbPlayers = nbPlayers - 1;
   semUp(sem, 1);
 }
 

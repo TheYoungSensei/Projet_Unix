@@ -48,4 +48,10 @@ typedef struct message {
 	char content[1024];
 } message;
 
+typedef struct card {
+  char color;
+  int value;
+  /* Maybe int played; 0 - 1 */
+} card;
+
 #endif

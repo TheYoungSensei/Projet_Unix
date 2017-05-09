@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 	SOCKET sock;
 	SOCKADDR_IN sin, csin;
 	message buffer;
-	player * players;
+	client * clients;
 	struct timeval tv;
 	struct sigaction act, actInt;
 	sigset_t set;
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 	initSharedMemory(&shm, &nbLect, &sem);
 	/* Sigaction's initialisation */
 	serverSigaction(&act, &actInt, &set);
-	SYSN((players = (player*) malloc(sizeof(player) * MAX_PLAYER)));
+	SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
 	/* Parametring registration's select */
 	maxFd = sock;
 	tv.tv_sec = 3;
@@ -72,8 +72,8 @@ int main(int argc, char** argv) {
 		FD_SET(sock, &readfds);
 		/* Add every player to the select */
 		for (compteur = 0 ; compteur < acceptNbr; compteur++){
-			FD_SET(players[compteur].sock, &readfds);
-			if (players[compteur].sock>maxFd) maxFd = players[compteur].sock;
+			FD_SET(clients[compteur].sock, &readfds);
+			if (clients[compteur].sock>maxFd) maxFd = clients[compteur].sock;
 		}
 		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == ERROR){
 			if (errno == EINTR){
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
 					printf("Fin du programme\n");
 					closesocket(sock);
 					for(compteur =0; compteur < acceptNbr; compteur++) {
-						closesocket(players[compteur].sock);
+						closesocket(clients[compteur].sock);
 					}
 					exit(0);
 				} else if (timeoutInt == 1) {
@@ -97,36 +97,36 @@ int main(int argc, char** argv) {
 				if (acceptNbr == 0) { /* If known pseudos's number = 1 */
 					alarm(30);
 				}
-				players[acceptNbr].pseudoKnown = 0;
-				SYS((players[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
+				clients[acceptNbr].pseudoKnown = 0;
+				SYS((clients[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
 				acceptNbr++;
 			} else {
 				for (compteur = 0 ; compteur < acceptNbr; compteur++){
-					if(FD_ISSET(players[compteur].sock, &readfds)) {
-						SYS((n = readSocket(players[compteur].sock, &buffer)));
+					if(FD_ISSET(clients[compteur].sock, &readfds)) {
+						SYS((n = readSocket(clients[compteur].sock, &buffer)));
 						if (n == 0) {
 							buffer.status = 200;
 							/* notNull -> Allow us to know whether we have to remove the pseudo's number */
 							notNull = 0;
-							if(players[compteur].pseudoKnown != 0) {
-								sprintf(buffer.content, "Déconnexion de : %s", players[compteur].pseudo);
+							if(clients[compteur].pseudoKnown != 0) {
+								sprintf(buffer.content, "Déconnexion de : %s", clients[compteur].pseudo);
 								notNull = 1;
 							}
 							for(i = compteur; i < acceptNbr-1; i++) {
-									players[i] = players[i+1];
+									clients[i] = clients[i+1];
 							}
 							acceptNbr--;
 							if(notNull == 0) break;
 							pseudosNbr--;
 							for(i = 0 ;i < acceptNbr; i++) {
-								SYS(sendSocket(players[i].sock, &buffer));
+								SYS(sendSocket(clients[i].sock, &buffer));
 							}
 						} else {
 							/* Adding the pseudo of a player */
-							players[compteur].pseudoKnown = 1;
-							SYSN((players[compteur].pseudo = (char *) malloc(sizeof(char) * n)));
-							strcpy(players[compteur].pseudo, buffer.content);
-							players[compteur].pseudo[strlen(players[compteur].pseudo) - 1] = '\0';
+							clients[compteur].pseudoKnown = 1;
+							SYSN((clients[compteur].pseudo = (char *) malloc(sizeof(char) * n)));
+							strcpy(clients[compteur].pseudo, buffer.content);
+							clients[compteur].pseudo[strlen(clients[compteur].pseudo) - 1] = '\0';
 							pseudosNbr++;
 						}
 					}
@@ -138,13 +138,13 @@ int main(int argc, char** argv) {
 	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
 	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		if(players[compteur].pseudoKnown == 0) {
+		if(clients[compteur].pseudoKnown == 0) {
 			buffer.status = 201;
 			strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
-			SYS(sendSocket(players[compteur].sock, &buffer));
-			SYS(closesocket(players[compteur].sock));
+			SYS(sendSocket(clients[compteur].sock, &buffer));
+			SYS(closesocket(clients[compteur].sock));
 			for(i = compteur; i < acceptNbr-1; i++) {
-					players[i] = players[i+1];
+					clients[i] = clients[i+1];
 			}
 			acceptNbr--;
 		}
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		buffer.status = 201;
 		strcpy(buffer.content, "Lancement de la partie !");
-		SYS(sendSocket(players[compteur].sock, &buffer));
+		SYS(sendSocket(clients[compteur].sock, &buffer));
 	}
 
 /* Future game's handeling */
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
 	/* Closing every socket  */
 	SYS(closesocket(sock));
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		SYS(closesocket(players[compteur].sock));
+		SYS(closesocket(clients[compteur].sock));
 	}
 
 }
