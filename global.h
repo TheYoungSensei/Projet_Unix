@@ -5,7 +5,7 @@
  *
  * Description : Header of the global.c file
  *
- * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
+ * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *
  * ==================================================================
  */
@@ -33,6 +33,10 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+typedef struct message {
+	int status;
+	char content[1024];
+} message;
 
 typedef int SOCKET;
 typedef struct sockaddr_in SOCKADDR_IN;
@@ -43,8 +47,4 @@ typedef struct in_addr IN_ADDR;
 
 
 void writeToErr(FILE * file, char * message);
-
-typedef struct message {
-	int status;
-	char content[1024];
-} message;
+void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem);

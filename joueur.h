@@ -5,7 +5,7 @@
  *
  * Description : Header of the joueur.c file
  *
- * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
+ * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *
  * ==================================================================
  */

@@ -6,7 +6,7 @@
  *
  * Description : global file.
  *
- * Author : MANIET Antoine "nomLogin", SACRE Christopher "csacre15"
+ * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *
  * ==================================================================
  */
@@ -23,4 +23,13 @@ void writeToErr(FILE * file, char * message) {
 	} else {
 		fprintf(file, "%s : %s\n", message, strerror(errno));
 	}
+}
+
+void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem) {
+int shmid;
+shmid = getMemory();
+*shm = attachMemory(shmid);
+shmid = getMemory();
+*nbLect = attachMemory(shmid);
+*sem = sembufInit();
 }

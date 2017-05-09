@@ -5,7 +5,7 @@
  *
  * Description : file used to play the client role.
  *
- * Author : MANIET Antoine "amaniet152", SACRE Christopher "csacre15"
+ * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *
  * ==================================================================
  */
@@ -13,6 +13,7 @@
 #include "global.h"
 #include "joueur.h"
 #include "socket.h"
+#include "sharedMemory.h"
 
 int main(int argc, char** argv) {
 	SOCKET sock;

@@ -5,7 +5,7 @@
  *
  * Description : file used to play the server role.
  *
- * Author : MANIET Antoine "amaniet152", SACRE Christopher "csacre15"
+ * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *
  * ==================================================================
  */
@@ -13,6 +13,7 @@
 #include "global.h"
 #include "serveur.h"
 #include "socket.h"
+#include "sharedMemory.h"
 
 static int timeoutInt = 0;
 static int serverInt = 0;
@@ -39,9 +40,12 @@ int main(int argc, char** argv) {
 	int notNull, i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
 	FILE * fderror = NULL;
 	/* Arguments management */
-	if(argc != 3) {
+	if(argc != 3 && argc != 2) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
 		return ERROR;
+	}
+	if(argc == 3) {
+		freopen(*++argv, "a", stderr);
 	}
 	port = atoi(*++argv);
 	if(strcmp(*++argv, "stderr")) {
