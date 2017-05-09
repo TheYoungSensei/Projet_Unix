@@ -11,15 +11,16 @@
  */
 
 
- #ifndef JOUEURH_H
- #define JOUEURH_H
+#ifndef JOUEURH_H
+#define JOUEURH_H
 
+#include "global.h"
 
- #endif
+#endif
 
- #define closesocket(s) close(s)
- int readSocket(SOCKET sock, message * buffer, FILE * fderror);
- int sendSocket(SOCKET sock, message * buffer, FILE * fderror);
- int serverInit(int * sock, SOCKADDR_IN * sin, int port, FILE * file);
- SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i, FILE * file);
- SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);
+#define closesocket(s) close(s)
+int readSocket(SOCKET sock, message * buffer);
+int sendSocket(SOCKET sock, message * buffer);
+int serverInit(int * sock, SOCKADDR_IN * sin, int port);
+SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i);
+SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);

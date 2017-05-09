@@ -12,56 +12,50 @@
 #include "sharedMemory.h"
 #include "global.h"
 
-int getMemory(FILE * fderror) {
+int getMemory() {
   int shmid;
-  if((shmid = shmget((key_t) KEY_M, SHMSZ, IPC_CREAT | 0666)) < 0) {
-    writeToErr(fderror, "shmget()");
-    return -1;
-  }
+  SYS((shmid = shmget((key_t) KEY_M, SHMSZ, IPC_CREAT | 0666)));
   return shmid;
 }
 
-char *attachMemory(int shmid, FILE * fderror) {
+char *attachMemory(int shmid) {
   char *shm;
   if((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
-    writeToErr(fderror, "shmat()");
+    perror("shmat()");
     return NULL;
   }
   return shm;
 }
 
 semaphore sembufInit() {
-  semaphore sem
+  semaphore sem;
   struct sembuf sop[2];
   int semid;
   sop[0].sem_num = 0; /* mutex */
   sop[0].sem_flg = 0;
   sop[1].sem_num = 1; /* sharedMemory */
   sop[1].sem_flg = 0;
-  sem.sop = sop;
-  if((semid = semget(KEY_M, 2, IPC_CREAT | 0644)) < 0) {
-    writeToErr(fderror, "semget()");
-    return NULL;
-  }
+  sem.sop[0] = sop[0];
+  sem.sop[1] = sop[1];
+  SYS((semid = semget(KEY_M, 2, IPC_CREAT | 0644)));
   sem.semid = semid;
   return sem;
 }
 
-int lecteur (semaphore *sem, char *nbLecteur, char *shm) {
+int lecteur (semaphore *sem, char **nbLecteur, char **shm) {
   char *tmp;
   while(TRUE) {
     semDown(sem, 0);
-    *nbLecteur = itoa(atoi((*nbLecteur)) + 1);
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) + 1));
     if(atoi((*nbLecteur)) == 1) {
       semDown(sem, 1);
     }
     semUp(sem, 0);
-    tmp = shm;
-    for(tmp = shm; *tmp != NULL; tmp++) {
+    /*for(tmp = (*shm); (*tmp) != NULL; tmp++) {
       printf("%s\n", tmp);
-    }
+    }*/
     semDown(sem, 0);
-    *nbLecteur = itoa(atoi((*nbLecteur)) - 1);
+      sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
     if(atoi((*nbLecteur)) == 0){
       semUp(sem, 1);
     }
@@ -73,22 +67,25 @@ int lecteur (semaphore *sem, char *nbLecteur, char *shm) {
 
 void redacteur(semaphore *sem, char *shm, char *ajout, int position) {
   semDown(sem, 1);
-  ecrireDonnees();
+  /*ecrireDonnees();*/
   semUp(sem, 1);
 }
 
 void semUp(semaphore * sem, int type) {
   sem->sop[type].sem_op = 1;
-  if((semop(sem->semid, &(sem->sop[type]))) < 0) {
-    writeToErr(fderror, "semop()");
-    return -1;
-  }
+  SYS((semop(sem->semid, &(sem->sop[type]), 1)));
 }
 
-void semDown(semaphore * sem) {
+void semDown(semaphore * sem, int type) {
   sem->sop[type].sem_op = -1;
-  if((semop(sem->semid, &(sem->sop[type]))) < 0) {
-    writeToErr(fderror, "semop()");
-    return -1;
-  }
+  SYS((semop(sem->semid, &(sem->sop[type]), 1)));
+}
+
+void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem) {
+  int shmid;
+  shmid = getMemory();
+  *shm = attachMemory(shmid);
+  shmid = getMemory();
+  *nbLect = attachMemory(shmid);
+  *sem = sembufInit();
 }

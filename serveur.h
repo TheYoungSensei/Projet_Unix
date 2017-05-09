@@ -13,8 +13,6 @@
 #ifndef SERVEURH_H
 #define SERVEURH_H
 
-#define SYS(call) ((call) == -1) ? exit(1) : 0
-
 typedef struct player {
   int pseudoKnown;
   char * pseudo;
@@ -24,6 +22,6 @@ typedef struct player {
 
 #endif
 
-void lock(FILE * file);
+void lock();
 FILE *openFile(const char * name, const char * mode, FILE * file);
-void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set, FILE * fderror);
+void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set);

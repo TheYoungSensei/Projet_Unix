@@ -13,23 +13,25 @@
 #ifndef SHM_H
 #define SHM_H
 
+
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+
+#define SHMSZ 666
+#define KEY_M 1418
 
 typedef struct semaphore {
   struct sembuf sop[2];
   int semid;
 }semaphore;
 
-#define SHMSZ 666
-#define KEY_M 1418
-
 #endif
-int getMemory(FILE * fderror);
-char *attachMemory(int shmid, FILE * fderror);
+int getMemory();
+char * attachMemory(int shmid);
 semaphore sembufInit();
-int lecteur (semaphore *sem, char *nbLecteur, char *shm);
+int lecteur (semaphore *sem, char **nbLecteur, char **shm);
 void redacteur(semaphore *sem, char *shm, char *ajout, int position);
 void semUp(semaphore * sem, int type);
-void semDown(semaphore * sem);
+void semDown(semaphore * sem, int type);
+void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem);

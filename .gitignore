@@ -5,3 +5,4 @@ serveur
 serveur.o
 socket.o
 sharedMemory.o
+error

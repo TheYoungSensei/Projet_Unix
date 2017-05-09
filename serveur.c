@@ -44,24 +44,18 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
 		return ERROR;
 	}
+	port = atoi(*++argv);
 	if(argc == 3) {
 		freopen(*++argv, "a", stderr);
 	}
-	port = atoi(*++argv);
-	if(strcmp(*++argv, "stderr")) {
-		fderror = openFile(*argv, "w", NULL);
-	}
 	/* Lock */
-	lock(fderror);
+	lock();
 	/* Server's initialisation */
-	SYS(serverInit(&sock, &sin, port, fderror));
+	SYS(serverInit(&sock, &sin, port));
 	sinsize = sizeof csin;
 	/* Sigaction's initialisation */
-	serverSigaction(&act, &actInt, &set, fderror);
-	if((players = (player*) malloc(sizeof(player) * MAX_PLAYER)) == NULL) {
-		writeToErr(fderror, "malloc()");
-		exit(ERRNO);
-	}
+	serverSigaction(&act, &actInt, &set);
+	SYSN((players = (player*) malloc(sizeof(player) * MAX_PLAYER)));
 	/* Parametring registration's select */
 	maxFd = sock;
 	tv.tv_sec = 3;
@@ -96,7 +90,7 @@ int main(int argc, char** argv) {
 					continue;
 				}
 			}
-			writeToErr(fderror, "select()");
+			perror("select()");
 			exit(ERRNO);
 		} else if (timedout != 0) {
 			if (FD_ISSET(sock, &readfds)){
@@ -104,12 +98,12 @@ int main(int argc, char** argv) {
 					alarm(30);
 				}
 				players[acceptNbr].pseudoKnown = 0;
-				SYS((players[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr, fderror)));
+				SYS((players[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
 				acceptNbr++;
 			} else {
 				for (compteur = 0 ; compteur < acceptNbr; compteur++){
 					if(FD_ISSET(players[compteur].sock, &readfds)) {
-						SYS((n = readSocket(players[compteur].sock, &buffer, fderror)));
+						SYS((n = readSocket(players[compteur].sock, &buffer)));
 						if (n == 0) {
 							buffer.status = 200;
 							/* notNull -> Allow us to know whether we have to remove the pseudo's number */
@@ -125,15 +119,12 @@ int main(int argc, char** argv) {
 							if(notNull == 0) break;
 							pseudosNbr--;
 							for(i = 0 ;i < acceptNbr; i++) {
-								SYS(sendSocket(players[i].sock, &buffer, fderror));
+								SYS(sendSocket(players[i].sock, &buffer));
 							}
 						} else {
 							/* Adding the pseudo of a player */
 							players[compteur].pseudoKnown = 1;
-							if((players[compteur].pseudo = (char *) malloc(sizeof(char) * n)) == NULL) {
-								writeToErr(fderror, "malloc()");
-								exit(ERRNO);
-							}
+							SYSN((players[compteur].pseudo = (char *) malloc(sizeof(char) * n)));
 							strcpy(players[compteur].pseudo, buffer.content);
 							players[compteur].pseudo[strlen(players[compteur].pseudo) - 1] = '\0';
 							pseudosNbr++;
@@ -144,16 +135,13 @@ int main(int argc, char** argv) {
 		}
 	}
 	/* Unblocking signals */
-	if(sigprocmask(SIG_UNBLOCK, &set, NULL) == ERROR) {
-		writeToErr(fderror, "sigprocmask");
-		exit(ERRNO);
-	}
+	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
 	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		if(players[compteur].pseudoKnown == 0) {
 			buffer.status = 201;
 			strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
-			SYS(sendSocket(players[compteur].sock, &buffer, fderror));
+			SYS(sendSocket(players[compteur].sock, &buffer));
 			SYS(closesocket(players[compteur].sock));
 			for(i = compteur; i < acceptNbr-1; i++) {
 					players[i] = players[i+1];
@@ -165,7 +153,7 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		buffer.status = 201;
 		strcpy(buffer.content, "Lancement de la partie !");
-		SYS(sendSocket(players[compteur].sock, &buffer, fderror));
+		SYS(sendSocket(players[compteur].sock, &buffer));
 	}
 
 /* Future game's handeling */
@@ -183,20 +171,16 @@ int main(int argc, char** argv) {
  * Used to make the server reacting like a singleton.
  * Exit in case of error.
  */
-void lock(FILE * file) {
+void lock() {
 	int f_lock;
 	/* flock to avoid double server opening */
-	if ((f_lock = open("serveur.lock", O_RDWR)) == ERROR){
-		writeToErr(file, "open()");
-		exit(ERRNO);
-	}
+	SYS((f_lock = open("serveur.lock", O_RDWR)));
 	if (flock(f_lock, LOCK_EX | LOCK_NB) == ERROR){
 		if( errno == EWOULDBLOCK ){
-
-			writeToErr(file, "The server is already launched");
+			fprintf(stderr, "The server is already launched");
 			exit(errno);
 		} else {
-			writeToErr(file, "flock");
+			perror("flock()");
 			exit(ERRNO);
 		}
 	}
@@ -208,45 +192,21 @@ void lock(FILE * file) {
  */
 FILE *openFile(const char * name, const char * mode, FILE * file) {
 	FILE *fd;
-	if((fd = fopen(name, mode)) == NULL) {
-		writeToErr(file, "fopen()");
-		exit(ERRNO);
-	}
+	SYSN((fd = fopen(name, mode)));
 	return fd;
 }
 
 
-void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set, FILE * fderror) {
+void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set) {
 	act->sa_handler = timeout;
 	act->sa_flags = 0;
 	actInt->sa_handler = serverInterrupt;
 	actInt->sa_flags = 0;
-	if (sigemptyset(&(act->sa_mask)) == ERROR){
-		writeToErr(fderror, "sigemptyset()");
-		exit(ERRNO);
-	}
-	if(sigfillset(set) == ERROR) {
-		writeToErr(fderror, "sigfillset()");
-		exit(ERRNO);
-	}
-	if(sigdelset(set, SIGALRM) == ERROR){
-		writeToErr(fderror, "sigdelset()");
-		exit(ERRNO);
-	}
-	if(sigdelset(set, SIGINT) == ERROR){
-		writeToErr(fderror, "sigdelset()");
-		exit(ERRNO);
-	}
-	if(sigprocmask(SIG_BLOCK, set, NULL) == ERROR){
-		writeToErr(fderror, "sigprocmask()");
-		exit(ERRNO);
-	}
-	if(sigaction(SIGALRM, act, NULL) == ERROR){
-		writeToErr(fderror, "sigaction()");
-		exit(ERRNO);
-	}
-	if(sigaction(SIGINT, actInt, NULL) == ERROR){
-		writeToErr(fderror, "sigaction()");
-		exit(ERRNO);
-	}
+	SYS(sigemptyset(&(act->sa_mask)));
+	SYS(sigfillset(set));
+	SYS(sigdelset(set, SIGALRM));
+	SYS(sigdelset(set, SIGINT));
+	SYS(sigprocmask(SIG_BLOCK, set, NULL));
+	SYS(sigaction(SIGALRM, act, NULL));
+	SYS(sigaction(SIGINT, actInt, NULL));
 }

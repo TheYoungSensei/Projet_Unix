@@ -14,9 +14,6 @@
 
 #ifndef GLOBALH_H
 #define GLOBALH_H
-#define ERROR -1
-#define MAX_PLAYER 4
-#define ERRNO errno
 
 
 #include <sys/types.h>
@@ -33,18 +30,22 @@
 #include <sys/stat.h>
 #include <signal.h>
 
-typedef struct message {
-	int status;
-	char content[1024];
-} message;
+#define TRUE 1
+#define ERROR -1
+#define MAX_PLAYER 4
+#define ERRNO errno
+
+#define SYS(call) ((call) == -1) ? perror(#call ": ERROR"), exit(1) : 0
+#define SYSN(call) ((call) == NULL) ? perror(#call ": ERROR"), exit(1) : 0
 
 typedef int SOCKET;
 typedef struct sockaddr_in SOCKADDR_IN;
 typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
 
+typedef struct message {
+	int status;
+	char content[1024];
+} message;
+
 #endif
-
-
-void writeToErr(FILE * file, char * message);
-void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem);

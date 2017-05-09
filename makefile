@@ -8,7 +8,7 @@ serveur : serveur.o global.o sharedMemory.o socket.o
 	$(CC) serveur.o global.o socket.o sharedMemory.o -o serveur
 
 joueur : joueur.o global.o socket.o sharedMemory.o
-	$(CC) joueur.o global.o socket.o sharedMemory -o joueur
+	$(CC) joueur.o global.o socket.o sharedMemory.o -o joueur
 
 serveur.o : serveur.h global.h sharedMemory.h socket.h serveur.c
 	$(CC) -c serveur.c

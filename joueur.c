@@ -31,10 +31,7 @@ int main(int argc, char** argv) {
 	hostname = *++argv;
 	sock = joueurInit(hostname, &sin, port);
 	/* Trying to connect to the server */
-	if(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)) == ERROR) {
-		perror("connect()");
-		exit(errno);
-	}
+	SYS(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)));
 	/* Showing Welcome message */
 	readJ(sock, &buffer);
 	printf("%s", buffer.content);
@@ -66,14 +63,8 @@ int main(int argc, char** argv) {
  * Used to readJ an input from the keyboard.
  */
 void keyboardReader(char** name){
-	if(((*name) = (char *) malloc(sizeof(char) * NAME_LENGTH)) == NULL) {
-		perror("malloc()");
-		exit(errno);
-	}
-	if ((fgets(*(name), NAME_LENGTH, stdin)) == NULL){
-		fprintf(stderr, "fgets problem");
-		exit(EXIT_FAILURE);
-	}
+	SYSN(((*name) = (char *) malloc(sizeof(char) * NAME_LENGTH)));
+	SYSN((fgets(*(name), NAME_LENGTH, stdin)));
 	if((*name)[strlen(*name)-1] != '\n'){
 		perror("Trop grande ligne lue\n");
 		while((*name)[strlen(*name) -1] != '\n'){
@@ -91,7 +82,7 @@ void keyboardReader(char** name){
  */
 int readJ(SOCKET sock, message *  buffer) {
 	int n; /* Number of caracs get by recv */
-	n = readSocket(sock, buffer, NULL);
+	n = readSocket(sock, buffer);
 	if (n == 0) {
 		printf("Le serveur s'est malheureusement déconnecté\n");
 		exit(errno);
@@ -104,5 +95,5 @@ int readJ(SOCKET sock, message *  buffer) {
  * Exit in case of error.
  */
 void sendJ(SOCKET sock, message * buffer) {
-	sendSocket(sock, buffer, NULL);
+	sendSocket(sock, buffer);
 }
