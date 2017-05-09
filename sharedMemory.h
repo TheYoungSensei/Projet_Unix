@@ -24,14 +24,21 @@
 typedef struct semaphore {
   struct sembuf sop[2];
   int semid;
-}semaphore;
+} semaphore;
+
+typedef struct memory {
+  char ** cards; /* Could and should be replaced by a card structure */
+  int * score;
+  char ** names;
+} memory;
 
 #endif
 int getMemory();
-char * attachMemory(int shmid);
+memory attachMemory(int shmid);
+char *attachMemoryChar(int shmid);
 semaphore sembufInit();
-int lecteur (semaphore *sem, char **nbLecteur, char **shm);
-void redacteur(semaphore *sem, char *shm, char *ajout, int position);
+int lecteur (semaphore *sem, char **nbLecteur, memory *shm);
+void redacteur(semaphore *sem, memory shm, memory ajout);
 void semUp(semaphore * sem, int type);
 void semDown(semaphore * sem, int type);
-void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem);
+void initSharedMemory(memory *shm, char **nbLect, semaphore * sem);

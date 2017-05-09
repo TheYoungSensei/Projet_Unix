@@ -18,7 +18,13 @@ int getMemory() {
   return shmid;
 }
 
-char *attachMemory(int shmid) {
+memory attachMemory(int shmid) {
+  memory *shm;
+  shm = shmat(shmid, NULL, 0);
+  return *shm;
+}
+
+char *attachMemoryChar(int shmid) {
   char *shm;
   if((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
     perror("shmat()");
@@ -42,8 +48,8 @@ semaphore sembufInit() {
   return sem;
 }
 
-int lecteur (semaphore *sem, char **nbLecteur, char **shm) {
-  char *tmp;
+int lecteur (semaphore *sem, char **nbLecteur, memory *shm) {
+  memory tmp;
   while(TRUE) {
     semDown(sem, 0);
     sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) + 1));
@@ -55,7 +61,7 @@ int lecteur (semaphore *sem, char **nbLecteur, char **shm) {
       printf("%s\n", tmp);
     }*/
     semDown(sem, 0);
-      sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
+    sprintf(*nbLecteur, "%d", (atoi((*nbLecteur)) - 1));
     if(atoi((*nbLecteur)) == 0){
       semUp(sem, 1);
     }
@@ -65,7 +71,7 @@ int lecteur (semaphore *sem, char **nbLecteur, char **shm) {
 
 }
 
-void redacteur(semaphore *sem, char *shm, char *ajout, int position) {
+void redacteur(semaphore *sem, memory shm, memory ajout) {
   semDown(sem, 1);
   /*ecrireDonnees();*/
   semUp(sem, 1);
@@ -81,11 +87,11 @@ void semDown(semaphore * sem, int type) {
   SYS((semop(sem->semid, &(sem->sop[type]), 1)));
 }
 
-void initSharedMemory(char ** shm, char ** nbLect, semaphore * sem) {
+void initSharedMemory(memory *shm, char ** nbLect, semaphore * sem) {
   int shmid;
   shmid = getMemory();
   *shm = attachMemory(shmid);
   shmid = getMemory();
-  *nbLect = attachMemory(shmid);
+  *nbLect = attachMemoryChar(shmid);
   *sem = sembufInit();
 }

@@ -38,7 +38,9 @@ int main(int argc, char** argv) {
 	fd_set readfds;
 	const char *hostname = "127.0.0.1";
 	int notNull, i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
-	FILE * fderror = NULL;
+	memory shm;
+	char * nbLect;
+	semaphore sem;
 	/* Arguments management */
 	if(argc != 3 && argc != 2) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
@@ -53,6 +55,7 @@ int main(int argc, char** argv) {
 	/* Server's initialisation */
 	SYS(serverInit(&sock, &sin, port));
 	sinsize = sizeof csin;
+	initSharedMemory(&shm, &nbLect, &sem);
 	/* Sigaction's initialisation */
 	serverSigaction(&act, &actInt, &set);
 	SYSN((players = (player*) malloc(sizeof(player) * MAX_PLAYER)));
