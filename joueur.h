@@ -13,6 +13,10 @@
 #ifndef JOUEURH_H
 #define JOUEURH_H
 
+#include "global.h"
+#include "socket.h"
+#include "sharedMemory.h"
+
 #define NAME_LENGTH 64
 
 #endif

@@ -13,6 +13,10 @@
 #ifndef SERVEURH_H
 #define SERVEURH_H
 
+#include "global.h"
+#include "socket.h"
+#include "sharedMemory.h"
+
 typedef struct player {
   int pseudoKnown;
   char * pseudo;

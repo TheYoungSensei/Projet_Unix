@@ -10,7 +10,6 @@
  * ==================================================================
  */
 #include "sharedMemory.h"
-#include "global.h"
 
 int getMemory() {
   int shmid;

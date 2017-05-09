@@ -10,10 +10,7 @@
  * ==================================================================
  */
 
-#include "global.h"
 #include "serveur.h"
-#include "socket.h"
-#include "sharedMemory.h"
 
 static int timeoutInt = 0;
 static int serverInt = 0;

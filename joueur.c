@@ -10,10 +10,8 @@
  * ==================================================================
  */
 
-#include "global.h"
 #include "joueur.h"
-#include "socket.h"
-#include "sharedMemory.h"
+
 
 int main(int argc, char** argv) {
 	SOCKET sock;

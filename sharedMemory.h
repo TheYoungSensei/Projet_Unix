@@ -13,6 +13,7 @@
 #ifndef SHM_H
 #define SHM_H
 
+#include "global.h"
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
