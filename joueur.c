@@ -58,7 +58,6 @@ int main(int argc, char** argv) {
 			break;
 		}
 	}
-	//sleep(3); For Test
 	mReader(&sem, &nbLect, &shm, PLAYERS);
 	close(sock);
 }

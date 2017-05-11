@@ -76,12 +76,11 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
         for(i = 0; i < tmp; i++) {
           pseudo = (*shm)->players[i].pseudo;
           score = (*shm)->players[i].score;
-          printf("%d\n", score);
-          /*if(pseudo == NULL) {
+          if(pseudo == NULL) {
             printf("NULL\n");
-          } else {
+          } else {    	  
             printf("%s a : %d points\n", pseudo, score);
-          }*/
+          }
         }
         break;
       case NB_CARDS :
@@ -118,13 +117,10 @@ void addCard(semaphore **sem, int **nbLecteur,  memory **shm, card card) {
 void addPlayer(semaphore **sem, int **nbLecteur,  memory **shm, player player) {
   int nbPlayers = mReader(sem, nbLecteur, shm, NB_PLAYERS);
   semDown(sem, 1);
-  printf("%s\n", player.pseudo);
-  printf("%d\n", nbPlayers);
   fflush(stdout);
-  //SYSN(((*shm)->players[nbPlayers].pseudo) = (char*) malloc(sizeof(strlen(player.pseudo))));
-  //strcpy(((*shm)->players[nbPlayers].pseudo), player.pseudo);
+  strcpy(((*shm)->players[nbPlayers].pseudo), player.pseudo);
   (*shm)->players[nbPlayers].score  = player.score;
-  (*shm)->nbPlayers = nbPlayers + 1;
+  (*shm)->nbPlayers = (*shm)->nbPlayers + 1;
   semUp(sem, 1);
 }
 
@@ -132,10 +128,10 @@ void removePlayer(semaphore **sem, int **nbLecteur,  memory **shm, int position)
   int nbPlayers = mReader(sem, nbLecteur, shm, NB_PLAYERS);
   int i;
   semDown(sem, 1);
-  for(i = position; i < nbPlayers - 1; i++) {
+  for(i = position; i < (*shm)->nbPlayers - 1; i++) {
       (*shm)->players[i] = (*shm)->players[i + 1];
   }
-  (*shm)->nbPlayers = nbPlayers - 1;
+  (*shm)->nbPlayers = (*shm)->nbPlayers - 1;
   semUp(sem, 1);
 }
 

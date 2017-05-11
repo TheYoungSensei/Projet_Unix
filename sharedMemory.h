@@ -25,6 +25,7 @@
 #define CARDS 2
 #define NB_PLAYERS 3
 #define NB_CARDS 4
+#define NAME_LENGTH 64
 
 typedef struct semaphore {
   struct sembuf sop[2];
@@ -32,7 +33,7 @@ typedef struct semaphore {
 } semaphore;
 
 typedef struct player {
-	char *pseudo;
+	char pseudo[NAME_LENGTH];
 	int score;
 	int position; /* TO TEST */
 } player;

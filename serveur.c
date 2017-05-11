@@ -109,6 +109,7 @@ int main(int argc, char** argv) {
 					if(FD_ISSET(clients[compteur].sock, &readfds)) {
 						SYS((n = readSocket(clients[compteur].sock, &buffer)));
 						if (n == 0) {
+							SYS(closesocket(clients[compteur].sock));
 							buffer.status = 200;
 							/* notNull -> Allow us to know whether we have to remove the pseudo's number */
 							notNull = 0;
@@ -122,7 +123,7 @@ int main(int argc, char** argv) {
 							acceptNbr--;
 							if(notNull == 0) break;
 							pseudosNbr--;
-							for(i = 0 ;i < acceptNbr; i++) {
+							for(i = 0 ; i < acceptNbr; i++) {
 								SYS(sendSocket(clients[i].sock, &buffer));
 							}
 						} else {
@@ -155,12 +156,11 @@ int main(int argc, char** argv) {
 	}
 	sendMsgToPlayers("Lancement de la partie !", 201, acceptNbr, buffer, clients);
 	/* Notifying all users about the game's beginning */
-	for(compteur =0; compteur < acceptNbr; compteur++) {
-		player.pseudo = clients[compteur].pseudo;
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
+		strcpy(player.pseudo, clients[compteur].pseudo);
 		player.score = 0;
 		addPlayer(&sem, &nbLect, &shm, player);
 	}
-
 /* Future game's handeling */
 
 	/* Closing every socket  */
@@ -168,7 +168,6 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		SYS(closesocket(clients[compteur].sock));
 	}
-
 }
 
 

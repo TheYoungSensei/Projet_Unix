@@ -17,8 +17,6 @@
 #include "socket.h"
 #include "sharedMemory.h"
 
-#define NAME_LENGTH 64
-
 #endif
 
 void keyboardReader(char** name);

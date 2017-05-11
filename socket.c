@@ -30,6 +30,7 @@ int readSocket(SOCKET sock, message *  buffer) {
 	/* May be improved */
 }
 
+
 /*
  * Send a message to the specified socket.
  * Exit in case of error.
@@ -37,6 +38,7 @@ int readSocket(SOCKET sock, message *  buffer) {
 int sendSocket(SOCKET sock, message * buffer) {
 	SYS(send(sock, buffer, sizeof((*(buffer))) ERROR, 0));
 	/* May be improved */
+	return 0;
 }
 
 /*
@@ -60,6 +62,7 @@ int serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 		}
 	}
 	SYS(listen(*(sock), MAX_PLAYER));
+	return 0;
 }
 
 /*
@@ -90,3 +93,4 @@ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	return sock;
 }
+
