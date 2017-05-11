@@ -46,15 +46,14 @@ typedef struct memory {
 
 #endif
 int getMemory();
-int getMemoryChar();
+int getMemoryInt();
 memory *attachMemory(int shmid);
-char **attachMemoryChar(int shmid);
+int *attachMemoryInt(int shmid);
 semaphore *sembufInit();
-int mReader(int type);
-void addCard(card card);
-void addPlayer(player player);
-void removePlayer(int position);
-void semUp(int type);
-void semDown(int type);
-void initSharedMemory();
-
+int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type);
+void addCard(semaphore **sem, int **nbLecteur,  memory **shm, card card);
+void addPlayer(semaphore **sem, int **nbLecteur,  memory **shm, player player);
+void removePlayer(semaphore **sem, int **nbLecteur,  memory **shm, int position);
+void semUp(semaphore ** sem, int type);
+void semDown(semaphore ** sem, int type);
+void initSharedMemory(memory **shm, int **nbLect, semaphore **sem);

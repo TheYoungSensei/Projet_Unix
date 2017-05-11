@@ -29,4 +29,3 @@ void lock();
 FILE *openFile(const char * name, const char * mode, FILE * file);
 void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set);
 void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buffer, struct client* clients);
-
