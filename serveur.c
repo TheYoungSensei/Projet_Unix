@@ -29,15 +29,13 @@ int main(int argc, char** argv) {
 	SOCKADDR_IN sin, csin;
 	message buffer;
 	client * clients;
+	player player;	
 	struct timeval tv;
 	struct sigaction act, actInt;
 	sigset_t set;
 	fd_set readfds;
 	const char *hostname = "127.0.0.1";
 	int notNull, i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
-	memory shm;
-	char * nbLect;
-	semaphore sem;
 	/* Arguments management */
 	if(argc != 3 && argc != 2) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
@@ -52,7 +50,7 @@ int main(int argc, char** argv) {
 	/* Server's initialisation */
 	SYS(serverInit(&sock, &sin, port));
 	sinsize = sizeof csin;
-	initSharedMemory(&shm, &nbLect, &sem);
+	initSharedMemory();
 	/* Sigaction's initialisation */
 	serverSigaction(&act, &actInt, &set);
 	SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
@@ -86,7 +84,7 @@ int main(int argc, char** argv) {
 					}
 					exit(0);
 				} else if (timeoutInt == 1) {
-					/* SIGALRM as been caucght */
+					/* SIGALRM as been caught */
 					continue;
 				}
 			}
@@ -95,7 +93,7 @@ int main(int argc, char** argv) {
 		} else if (timedout != 0) {
 			if (FD_ISSET(sock, &readfds)){
 				if (acceptNbr == 0) { /* If known pseudos's number = 1 */
-					alarm(30);
+					alarm(15);//TODO return to 30
 				}
 				clients[acceptNbr].pseudoKnown = 0;
 				SYS((clients[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
@@ -113,7 +111,7 @@ int main(int argc, char** argv) {
 								notNull = 1;
 							}
 							for(i = compteur; i < acceptNbr-1; i++) {
-									clients[i] = clients[i+1];
+								clients[i] = clients[i+1];
 							}
 							acceptNbr--;
 							if(notNull == 0) break;
@@ -144,19 +142,26 @@ int main(int argc, char** argv) {
 			SYS(sendSocket(clients[compteur].sock, &buffer));
 			SYS(closesocket(clients[compteur].sock));
 			for(i = compteur; i < acceptNbr-1; i++) {
-					clients[i] = clients[i+1];
+				clients[i] = clients[i+1];
 			}
 			acceptNbr--;
 		}
 	}
 	/* Notifying all users about the game's beginning */
+	sendMsgToPlayers( "Lancement de la partie !", 201, acceptNbr, buffer, clients);
+	/* Future game's handeling */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		buffer.status = 201;
-		strcpy(buffer.content, "Lancement de la partie !");
-		SYS(sendSocket(clients[compteur].sock, &buffer));
+		player.pseudo = clients[compteur].pseudo;
+		player.score = 0;
+		addPlayer(player);
 	}
 
-/* Future game's handeling */
+
+
+
+
+
+
 
 	/* Closing every socket  */
 	SYS(closesocket(sock));
@@ -210,3 +215,16 @@ void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *
 	SYS(sigaction(SIGALRM, act, NULL));
 	SYS(sigaction(SIGINT, actInt, NULL));
 }
+
+
+void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buffer, struct client* clients){
+	int compteur;
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
+		buffer.status = stat;
+		strcpy(buffer.content, message);
+		SYS(sendSocket(clients[compteur].sock, &buffer));
+	}
+}
+
+
+

@@ -21,9 +21,6 @@ int main(int argc, char** argv) {
 	const char *hostname;
 	int n = 0, port;
 	SOCKADDR_IN sin = { 0 };
-	memory shm;
-	char * nbLect;
-	semaphore sem;
 	if(argc != 3) {
 		fprintf(stderr, "joueur <port> <ipHost>\n");
 		return ERROR;
@@ -31,7 +28,6 @@ int main(int argc, char** argv) {
 	port = atoi(*++argv);
 	hostname = *++argv;
 	sock = joueurInit(hostname, &sin, port);
-	initSharedMemory(&shm, &nbLect, &sem);
 	/* Trying to connect to the server */
 	SYS(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)));
 	/* Showing Welcome message */
@@ -58,6 +54,9 @@ int main(int argc, char** argv) {
 			break;
 		}
 	}
+	mReader(PLAYERS);
+
+
 	close(sock);
 }
 
@@ -99,3 +98,4 @@ int readJ(SOCKET sock, message *  buffer) {
 void sendJ(SOCKET sock, message * buffer) {
 	sendSocket(sock, buffer);
 }
+

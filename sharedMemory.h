@@ -21,10 +21,14 @@
 
 #define SHMSZ 666
 #define KEY_M 1418
+#define PLAYERS 1
+#define CARDS 2
+#define NB_PLAYERS 3
+#define NB_CARDS 4
 
 typedef struct semaphore {
   struct sembuf sop[2];
-  int semid;
+  int semid[2];
 } semaphore;
 
 typedef struct player {
@@ -42,17 +46,15 @@ typedef struct memory {
 
 #endif
 int getMemory();
-memory attachMemory(int shmid);
-char *attachMemoryChar(int shmid);
-semaphore sembufInit();
-int lecteurPlayers(semaphore *sem, char **nbLecteur, memory *shm);
-int lecteurCards(semaphore *sem, char **nbLecteur, memory *shm);
-void redacteur(semaphore *sem, memory shm, memory ajout);
-int getNbPlayers(semaphore *sem, char **nbLecteur, memory *shm);
-int getNbCards(semaphore *sem, char **nbLecteur, memory *shm);
-void addCard(semaphore *sem, char **nbLecteur,  memory *shm, card card);
-void addPlayer(semaphore *sem, char **nbLecteur,  memory *shm, player player);
-void removePlayer(semaphore *sem, char **nbLecteur,  memory *shm, int position);
-void semUp(semaphore * sem, int type);
-void semDown(semaphore * sem, int type);
-void initSharedMemory(memory *shm, char **nbLect, semaphore * sem);
+int getMemoryChar();
+memory *attachMemory(int shmid);
+char **attachMemoryChar(int shmid);
+semaphore *sembufInit();
+int mReader(int type);
+void addCard(card card);
+void addPlayer(player player);
+void removePlayer(int position);
+void semUp(int type);
+void semDown(int type);
+void initSharedMemory();
+
