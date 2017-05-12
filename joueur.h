@@ -15,10 +15,11 @@
 
 #include "global.h"
 #include "socket.h"
-#include "sharedMemory.h"
+#include "ipc.h"
 
 #endif
 
 void keyboardReader(char** name);
-int readJ(SOCKET sock, message *  buffer);
-void sendJ(SOCKET sock, message * buffer);
+int readJ(message *  buffer);
+void sendJ(message * buffer);
+void setHandler(struct sigaction * interrupt, sigset_t *set);

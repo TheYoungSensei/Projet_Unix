@@ -12,8 +12,19 @@
 
 #include "serveur.h"
 
-static int timeoutInt = 0;
-static int serverInt = 0;
+/* Needed outside of the main and more precisely in signals management */
+int serverInt = 0, acceptNbr = 0, timeoutInt = 0,  pseudosNbr = 0;
+SOCKET sock;
+client * clients;
+memory* shm;
+int * nbLect;
+semaphore *sem;
+
+void interruptHandler(int sigint) {
+	printf("Interruption du serveur : %d\n", sigint);
+	closeIPCs(&shm, &nbLect, &sem);
+	closeSockets(&sock, &clients);
+}
 
 void timeout(int bla){
 	timeoutInt = 1;
@@ -25,20 +36,15 @@ void serverInterrupt(int sig) {
 }
 
 int main(int argc, char** argv) {
-	SOCKET sock;
 	SOCKADDR_IN sin, csin;
 	message buffer;
-	client * clients;
 	player player;
 	struct timeval tv;
-	struct sigaction act, actInt;
+	struct sigaction act, actInt, interrupt;
 	sigset_t set;
 	fd_set readfds;
 	const char *hostname = "127.0.0.1";
-	int notNull, i, sinsize, port, n = 0, acceptNbr = 0, pseudosNbr = 0, compteur, maxFd = sock, timedout, f_lock;
-	memory* shm;
-	int * nbLect;
-	semaphore *sem;
+	int notNull, i, sinsize, port, n = 0, compteur, maxFd = sock, timedout, f_lock;
 	/* Arguments management */
 	if(argc != 3 && argc != 2) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
@@ -53,11 +59,9 @@ int main(int argc, char** argv) {
 	/* Server's initialisation */
 	SYS(serverInit(&sock, &sin, port));
 	sinsize = sizeof csin;
-	initSharedMemory(&shm, &nbLect, &sem);
-	sem->sop[0].sem_op = 1;
-  sem->sop[1].sem_op = 1;
 	/* Sigaction's initialisation */
 	serverSigaction(&act, &actInt, &set);
+	initSharedMemory(&shm, &nbLect, &sem);
 	SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
 	/* Parametring registration's select */
 	maxFd = sock;
@@ -83,11 +87,8 @@ int main(int argc, char** argv) {
 			if (errno == EINTR){
 				if (serverInt == 1) {
 					/* CTRL-C as been caught */
-					printf("Fin du programme\n");
-					closesocket(sock);
-					for(compteur =0; compteur < acceptNbr; compteur++) {
-						closesocket(clients[compteur].sock);
-					}
+					closeSockets(&sock, &clients);
+					closeIPCs(&shm, &nbLect, &sem);
 					exit(0);
 				} else if (timeoutInt == 1) {
 					/* SIGALRM as been caught */
@@ -96,7 +97,7 @@ int main(int argc, char** argv) {
 			}
 			perror("select()");
 			exit(ERRNO);
-		} else if (timedout != 0) {
+		} else {
 			if (FD_ISSET(sock, &readfds)){
 				if (acceptNbr == 0) { /* If known pseudos's number = 1 */
 					alarm(15); //TODO return to 30
@@ -107,26 +108,8 @@ int main(int argc, char** argv) {
 			} else {
 				for (compteur = 0 ; compteur < acceptNbr; compteur++){
 					if(FD_ISSET(clients[compteur].sock, &readfds)) {
-						SYS((n = readSocket(clients[compteur].sock, &buffer)));
-						if (n == 0) {
-							SYS(closesocket(clients[compteur].sock));
-							buffer.status = 200;
-							/* notNull -> Allow us to know whether we have to remove the pseudo's number */
-							notNull = 0;
-							if(clients[compteur].pseudoKnown != 0) {
-								sprintf(buffer.content, "Déconnexion de : %s", clients[compteur].pseudo);
-								notNull = 1;
-							}
-							for(i = compteur; i < acceptNbr-1; i++) {
-									clients[i] = clients[i+1];
-							}
-							acceptNbr--;
-							if(notNull == 0) break;
-							pseudosNbr--;
-							for(i = 0 ; i < acceptNbr; i++) {
-								SYS(sendSocket(clients[i].sock, &buffer));
-							}
-						} else {
+						SYS(n = readS(compteur, &buffer));
+						if(n != 0) {
 							/* Adding the pseudo of a player */
 							clients[compteur].pseudoKnown = 1;
 							SYSN((clients[compteur].pseudo = (char *) malloc(sizeof(char) * n)));
@@ -141,6 +124,7 @@ int main(int argc, char** argv) {
 	}
 	/* Unblocking signals */
 	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
+	setHandler(&interrupt, &set);
 	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		if(clients[compteur].pseudoKnown == 0) {
@@ -159,7 +143,7 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		strcpy(player.pseudo, clients[compteur].pseudo);
 		player.score = 0;
-		addPlayer(&sem, &nbLect, &shm, player);
+		addPlayer(&sem, &nbLect, &shm, player); /* Adding the players into the sharedMemory */
 	}
 /* Future game's handeling */
 
@@ -168,6 +152,8 @@ int main(int argc, char** argv) {
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		SYS(closesocket(clients[compteur].sock));
 	}
+	closeSockets(&sock, &clients);
+	closeIPCs(&shm, &nbLect, &sem);
 }
 
 
@@ -222,4 +208,57 @@ void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buf
 		strcpy(buffer.content, message);
 		SYS(sendSocket(clients[compteur].sock, &buffer));
 	}
+}
+
+void setHandler(struct sigaction * interrupt, sigset_t *set) {
+	interrupt->sa_handler = interruptHandler;
+	interrupt->sa_flags = 0;
+	SYS(sigemptyset(&(interrupt->sa_mask)));
+	SYS(sigfillset(set));
+	SYS(sigdelset(set, SIGTERM));
+	SYS(sigdelset(set, SIGINT));
+	SYS(sigdelset(set, SIGQUIT));
+	SYS(sigprocmask(SIG_BLOCK, set, NULL));
+	SYS(sigaction(SIGTERM, interrupt, NULL));
+	SYS(sigaction(SIGINT, interrupt, NULL));
+	SYS(sigaction(SIGQUIT, interrupt, NULL));
+}
+
+void closeSockets(SOCKET *sock, client **clients) {
+	int compteur;
+	printf("Fin du programme\n");
+	closesocket(*sock);
+	for(compteur =0; compteur < acceptNbr; compteur++) {
+		closesocket((*clients)[compteur].sock);
+	}
+}
+
+/*
+ * Receive a message from the specified socket.
+ * Returns number of caracs readed in case of success.
+ * Exit in case of error.
+ */
+int readS(int position, message  * buffer) {
+	int n, notNull, i; /* Number of caracs get by recv */
+	n = readSocket(clients[position].sock, buffer);
+	if (n == 0) {
+		SYS(closesocket(clients[position].sock));
+		buffer->status = 200;
+		/* notNull -> Allow us to know whether we have to remove the pseudo's number */
+		notNull = 0;
+		if(clients[position].pseudoKnown != 0) {
+			sprintf(buffer->content, "Déconnexion de : %s", clients[position].pseudo);
+			notNull = 1;
+		}
+		for(i = position; i < acceptNbr-1; i++) {
+				clients[i] = clients[i+1];
+		}
+		acceptNbr--;
+		if(notNull == 0) return n;
+		pseudosNbr--;
+		for(i = 0 ; i < acceptNbr; i++) {
+			SYS(sendSocket(clients[i].sock, buffer));
+		}
+	}
+	return n;
 }

@@ -21,10 +21,10 @@ int readSocket(SOCKET sock, message *  buffer) {
 	int n; /* Number of caracs get by recv */
 	if((n = recv(sock, buffer, sizeof((*buffer)) - 1, 0)) < ERROR) {
 		if(errno == EOF) {
-			return ERROR; /* Can be replaced with player.disconnect */
+			return 0; /* Can be replaced with player.disconnect */
 		}
 		perror("recv()");
-    return -2;
+    return -1;
 	}
 	return n;
 	/* May be improved */
@@ -93,4 +93,3 @@ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	return sock;
 }
-

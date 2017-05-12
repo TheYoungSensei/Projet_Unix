@@ -15,7 +15,7 @@
 
 #include "global.h"
 #include "socket.h"
-#include "sharedMemory.h"
+#include "ipc.h"
 
 typedef struct client {
   int pseudoKnown;
@@ -29,3 +29,6 @@ void lock();
 FILE *openFile(const char * name, const char * mode, FILE * file);
 void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set);
 void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buffer, struct client* clients);
+void closeSockets(SOCKET *sock, client **clients);
+void setHandler(struct sigaction * interrupt, sigset_t *set);
+int readS(int position, message *  buffer);

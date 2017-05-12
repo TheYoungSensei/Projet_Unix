@@ -12,18 +12,27 @@
 
 #include "joueur.h"
 
+/* Needed outside of the main and more precisely in interruptHandler */
+memory *shm;
+int * nbLect;
+semaphore *sem;
+SOCKET sock;
+
+void interruptHandler(int sigint) {
+	printf("Signal %d reçu\n", sigint);
+	closeIPCs(&shm, &nbLect, &sem);
+	close(sock);
+}
 
 int main(int argc, char** argv) {
-	SOCKET sock;
 	message buffer;
 	char ligne[1024];
 	char * name;
 	const char *hostname;
 	int n = 0, port;
 	SOCKADDR_IN sin = { 0 };
-	memory *shm;
-	int * nbLect;
-	semaphore *sem;
+	struct sigaction interrupt;
+	sigset_t set;
 	if(argc != 3) {
 		fprintf(stderr, "joueur <port> <ipHost>\n");
 		return ERROR;
@@ -31,11 +40,12 @@ int main(int argc, char** argv) {
 	port = atoi(*++argv);
 	hostname = *++argv;
 	sock = joueurInit(hostname, &sin, port);
+	setHandler(&interrupt, &set);
 	initSharedMemory(&shm, &nbLect, &sem);
 	/* Trying to connect to the server */
 	SYS(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)));
 	/* Showing Welcome message */
-	readJ(sock, &buffer);
+	readJ(&buffer);
 	printf("%s", buffer.content);
 	/* readJing the userName */
 	printf("Veuillez entrer votre pseudo : \n");
@@ -43,7 +53,7 @@ int main(int argc, char** argv) {
 	keyboardReader(&name);
 	strcpy(buffer.content, name);
 	buffer.status = 200;
-	sendJ(sock, &buffer);
+	sendJ(&buffer);
 	if (buffer.status == 500){
 		/* TO DISCUSS */
 		exit(0);
@@ -51,15 +61,17 @@ int main(int argc, char** argv) {
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
 	/* Future interactions with the serveur */
 	while(1) {
-		readJ(sock, &buffer);
+		readJ(&buffer);
 		printf("%s\n", buffer.content);
 		fflush(stdin);
 		if(buffer.status == 201) {
 			break;
 		}
 	}
+	/* Game's Beginning - End of Login Phase */
 	mReader(&sem, &nbLect, &shm, PLAYERS);
 	close(sock);
+	closeIPCs(&shm, &nbLect, &sem);
 }
 
 /*
@@ -83,7 +95,7 @@ void keyboardReader(char** name){
  * Returns number of caracs readJ in case of success.
  * Exit in case of error.
  */
-int readJ(SOCKET sock, message *  buffer) {
+int readJ(message *  buffer) {
 	int n; /* Number of caracs get by recv */
 	n = readSocket(sock, buffer);
 	if (n == 0) {
@@ -97,6 +109,20 @@ int readJ(SOCKET sock, message *  buffer) {
  * sendJ a message to the specified socket.
  * Exit in case of error.
  */
-void sendJ(SOCKET sock, message * buffer) {
+void sendJ(message * buffer) {
 	sendSocket(sock, buffer);
+}
+
+void setHandler(struct sigaction * interrupt, sigset_t *set) {
+	interrupt->sa_handler = interruptHandler;
+	interrupt->sa_flags = 0;
+	SYS(sigemptyset(&(interrupt->sa_mask)));
+	SYS(sigfillset(set));
+	SYS(sigdelset(set, SIGTERM));
+	SYS(sigdelset(set, SIGINT));
+	SYS(sigdelset(set, SIGQUIT));
+	SYS(sigprocmask(SIG_BLOCK, set, NULL));
+	SYS(sigaction(SIGTERM, interrupt, NULL));
+	SYS(sigaction(SIGINT, interrupt, NULL));
+	SYS(sigaction(SIGQUIT, interrupt, NULL));
 }
