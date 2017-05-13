@@ -1,9 +1,9 @@
 /*
  * ==================================================================
  *
- * Filename : serveur.c
+ * Filename : ipc.c
  *
- * Description : Used to manipulate the shared memory.
+ * Description : Used to manipulate the shared memory and the semaphores.
  *
  * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *
@@ -11,18 +11,27 @@
  */
 #include "ipc.h"
 
+/*
+ * Used to get the id of the common shared memory.
+ */
 int getMemory() {
   int shmid;
   SYS((shmid = shmget((key_t) KEY_M, SHMSZ, IPC_CREAT | 0666)));
   return shmid;
 }
 
+/*
+ * Used to get the id of the memory used in the Courtois Algorithm.
+ */
 int getMemoryInt() {
   int shmid;
   SYS((shmid = shmget((key_t) 6666, SHMSZ, IPC_CREAT | 0666)));
   return shmid;
 }
 
+/*
+ * Used to attach to a shared memory of struct memory type.
+ */
 memory *attachMemory(int shmid) {
   memory *shm;
   SYSN(shm = (memory *) malloc(sizeof(memory)));
@@ -30,12 +39,18 @@ memory *attachMemory(int shmid) {
   return shm;
 }
 
+/*
+ * Used to attach to a shared memory of int type.
+ */
 int *attachMemoryInt(int shmid) {
   int *shm;
   shm = shmat(shmid, NULL, 0);
   return shm;
 }
 
+/*
+ * Used to initiate the semaphore's.
+ */
 semaphore *sembufInit() {
   semaphore * sem;
   SYSN(sem = (semaphore*) malloc(sizeof(semaphore)));
@@ -57,6 +72,13 @@ semaphore *sembufInit() {
   return sem;
 }
 
+/*
+ * Used to read data from the shared memory varying on type.
+ * Type can be : NB_PLAYERS : get the number of players.
+ *               NB_CARDS : get the number of cards.
+ *               PLAYERS : read the players data's.
+ *               CARDS : read the cards data's.
+ */
 int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
   int i, tmp;
   char * pseudo;
@@ -103,7 +125,9 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
 
 }
 
-
+/*
+ * Used to add a card to the shared memory.
+ */
 void addCard(semaphore **sem, int **nbLecteur,  memory **shm, card card) {
   int nbCards = mReader(sem, nbLecteur, shm, NB_CARDS);
   semDown(sem, 1);
@@ -113,6 +137,9 @@ void addCard(semaphore **sem, int **nbLecteur,  memory **shm, card card) {
   semUp(sem, 1);
 }
 
+/*
+ * Used to add a player to the shared memory.
+ */
 void addPlayer(semaphore **sem, int **nbLecteur,  memory **shm, player player) {
   int nbPlayers = mReader(sem, nbLecteur, shm, NB_PLAYERS);
   semDown(sem, 1);
@@ -123,6 +150,9 @@ void addPlayer(semaphore **sem, int **nbLecteur,  memory **shm, player player) {
   semUp(sem, 1);
 }
 
+/*
+ * Used to remove a player from the shared memory.
+ */
 void removePlayer(semaphore **sem, int **nbLecteur,  memory **shm, int position) {
   int nbPlayers = mReader(sem, nbLecteur, shm, NB_PLAYERS);
   int i;
@@ -134,16 +164,25 @@ void removePlayer(semaphore **sem, int **nbLecteur,  memory **shm, int position)
   semUp(sem, 1);
 }
 
+/*
+ * Used to make a up on a semaphore (+1).
+ */
 void semUp(semaphore ** sem, int type) {
   (*sem)->sop[type].sem_op = 1;
   SYS((semop((*sem)->semid[type], &((*sem)->sop[type]), 1)));
 }
 
+/*
+ * Used to make a down on a semaphore (-1).
+ */
 void semDown(semaphore ** sem, int type) {
   (*sem)->sop[type].sem_op = -1;
   SYS((semop((*sem)->semid[type], &((*sem)->sop[type]), 1)));
 }
 
+/*
+ * Used to iniate the shareds memories and the semaphores.
+ */
 void initSharedMemory(memory **shm, int ** nbLect, semaphore ** sem) {
   int shmid;
   shmid = getMemory();
@@ -156,6 +195,9 @@ void initSharedMemory(memory **shm, int ** nbLect, semaphore ** sem) {
   **nbLect = 0;
 }
 
+/*
+ * Used to close the ipc's.
+ */
 void closeIPCs(memory ** shm, int** nbLect, semaphore ** sem) {
   shmdt(*shm);
   shmdt(*nbLect);

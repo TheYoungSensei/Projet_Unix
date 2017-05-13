@@ -18,10 +18,14 @@ int * nbLect;
 semaphore *sem;
 SOCKET sock;
 
+/*
+ * Used to catch SIGINT, SIGQUIT and SIGTERM signals during the game.
+ */
 void interruptHandler(int sigint) {
 	printf("Signal %d reçu\n", sigint);
 	closeIPCs(&shm, &nbLect, &sem);
 	close(sock);
+	exit(0);
 }
 
 int main(int argc, char** argv) {
@@ -78,9 +82,9 @@ int main(int argc, char** argv) {
 	/* Game's Beginning - End of Login Phase */
 	mReader(&sem, &nbLect, &shm, PLAYERS);
 
-	/* Card's first draw */	
+	/* Card's first draw */
 	n = 0;
-	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));	
+	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));
 	while(1){
 		readJ(&buffer);
 		fflush(stdin);
@@ -123,13 +127,13 @@ int main(int argc, char** argv) {
 		n++;
 		}
 	}
-	printf("You removed cards %s\n You are now waiting for every player to remove their cards.\n",buffer.content);
+	printf("You removed cards %s\nYou are now waiting for every player to remove their cards.\n",buffer.content);
 	sendJ(&buffer);
 	strcpy(charBuf, "");
 	n=0;
 	while(1){
-		readJ(&buffer);	
-		if (buffer.status == 203) {	
+		readJ(&buffer);
+		if (buffer.status == 203) {
 			printf("You got these cards : %s\n",buffer.content);
   			charBuf = strtok(buffer.content, " ");
   			while (charBuf != NULL) {
@@ -151,12 +155,12 @@ int main(int argc, char** argv) {
 	n=0;
 	while (cardsNumber > n) {
 		printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
-		n++;	
+		n++;
 	}
 	printf("You are waiting for your turn. You can check things if you do things [TODO]\n");
 
 
-	printf("End of the game\n");		
+	printf("End of the game\n");
 	close(sock);
 	closeIPCs(&shm, &nbLect, &sem);
 }
@@ -232,6 +236,9 @@ void sendJ(message * buffer) {
 	sendSocket(sock, buffer);
 }
 
+/*
+ *  Used to initiate the sigactions to handle signals SIGINT, SIGQUIT and SIGTERM during the game.
+ */
 void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	interrupt->sa_handler = interruptHandler;
 	interrupt->sa_flags = 0;

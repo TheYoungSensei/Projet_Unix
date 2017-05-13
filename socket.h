@@ -3,7 +3,7 @@
  *
  * Filename : socket.h
  *
- * Description : Header of the joueur.c file
+ * Description : Header of the socket.c file
  *
  * Author : MANIET Antoine "amaniet152" (Série : 2), SACRE Christopher "csacre15" (Série : 2)
  *

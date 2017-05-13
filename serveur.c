@@ -20,26 +20,36 @@ memory * shm;
 int * nbLect;
 semaphore * sem;
 
+/*
+ * Used to catch SIGINT, SIGQUIT and SIGTERM signals during the game.
+ */
 void interruptHandler(int sigint) {
 	printf("Interruption du serveur : %d\n", sigint);
 	closeIPCs(&shm, &nbLect, &sem);
 	closeSockets(&sock, &clients);
+	exit(0);
 }
 
+/*
+ * Used to catch the SIGALRM signal during the login (After 30 seconds).
+ */
 void timeout(int bla){
 	timeoutInt = 1;
 }
 
+/*
+ * Used to catch the SIGINT signal during the login
+ */
 void serverInterrupt(int sig) {
 	/* Server Interrupt CTRL-C */
 	serverInt = 1;
 }
 
 int main(int argc, char** argv) {
-	srand(time(NULL)); 	
+	srand(time(NULL));
 	SOCKADDR_IN sin, csin;
 	message buffer;
-	message * allMessages;	
+	message * allMessages;
 	player player;
 	struct timeval tv;
 	struct sigaction act, actInt, interrupt;
@@ -129,8 +139,8 @@ int main(int argc, char** argv) {
 	setHandler(&interrupt, &set);
 
 	/* malloc allMessages */
-       	SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));	
-	
+       	SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));
+
 	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		if(clients[compteur].pseudoKnown == 0) {
@@ -145,7 +155,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	/* Notifying all users about the game's beginning */
-	sendMsgToPlayers("Lancement de la partie !\n Voici le placement des joueurs (2 est à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
+	sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est à gauche de 1 etc) : ", 201, acceptNbr, buffer, clients);
 	/* Adding the players into the sharedMemory */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		strcpy(player.pseudo, clients[compteur].pseudo);
@@ -156,17 +166,17 @@ int main(int argc, char** argv) {
 	giveCards(shm, &buffer, clients);
 	/* Retrieving removed cards */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		readS(compteur, &buffer);	
+		readS(compteur, &buffer);
 		strcpy(allMessages[compteur].content, buffer.content);
-	}	
-	
+	}
+
 	/* Sending removed cards to players on their left ((compteur+1)%acceptNbr) */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		allMessages[compteur].status = 203;
 		SYS(sendSocket(clients[(compteur+1)%acceptNbr].sock, &(allMessages[compteur])));
 	}
 
-	
+
 	/* Future game's handeling */
 
 
@@ -178,15 +188,6 @@ int main(int argc, char** argv) {
 	closeSockets(&sock, &clients);
 	closeIPCs(&shm, &nbLect, &sem);
 }
-
-
-
-
-
-
-
-
-
 
 /*
  * Used to give cards to players.
@@ -204,10 +205,10 @@ void giveCards(memory* shm, message* buffer, client* clients){
 	buffer->status = 202;
 		for (compteur2=0;compteur2<MAXCARDS/nbP;compteur2++){
 			sprintf(buffer->content,"%d",list[compteur2+compteur*MAXCARDS/nbP]);
-			SYS(sendSocket(clients[compteur].sock, buffer));			
+			SYS(sendSocket(clients[compteur].sock, buffer));
 		}
-		buffer->status = 500;		
-		SYS(sendSocket(clients[compteur].sock, buffer));					
+		buffer->status = 500;
+		SYS(sendSocket(clients[compteur].sock, buffer));
 	}
 }
 
@@ -215,10 +216,10 @@ void giveCards(memory* shm, message* buffer, client* clients){
  * Used to randomize the order of cards.
  */
 void shuffle(int *array, size_t n){
-    if (n > 1) 
+    if (n > 1)
     {
         size_t i;
-        for (i = 0; i < n - 1; i++) 
+        for (i = 0; i < n - 1; i++)
         {
           size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
           int t = array[j];
@@ -257,7 +258,9 @@ FILE *openFile(const char * name, const char * mode, FILE * file) {
 	return fd;
 }
 
-
+/*
+ *  Used to initiate the sigactions to handle signals SIGINT, SIGALRM during the login.
+ */
 void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *set) {
 	act->sa_handler = timeout;
 	act->sa_flags = 0;
@@ -272,6 +275,9 @@ void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *
 	SYS(sigaction(SIGINT, actInt, NULL));
 }
 
+/*
+ * Used to send a message to all players.
+ */
 void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buffer, struct client* clients) {
 	int compteur;
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
@@ -281,6 +287,9 @@ void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buf
 	}
 }
 
+/*
+ *  Used to initiate the sigactions to handle signals SIGINT, SIGQUIT and SIGTERM during the game.
+ */
 void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	interrupt->sa_handler = interruptHandler;
 	interrupt->sa_flags = 0;
@@ -295,6 +304,9 @@ void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	SYS(sigaction(SIGQUIT, interrupt, NULL));
 }
 
+/*
+ * Used to close the server's socket and the client's sockets.
+ */
 void closeSockets(SOCKET *sock, client **clients) {
 	int compteur;
 	printf("Fin du programme\n");
