@@ -25,6 +25,7 @@
 #define CARDS 2
 #define NB_PLAYERS 3
 #define NB_CARDS 4
+#define SCORE 5
 #define NAME_LENGTH 64
 #define MAXCARDS 60
 #define NOMBRE_MANCHE 4

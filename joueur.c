@@ -42,9 +42,11 @@ int main(int argc, char** argv) {
 	card tmpCard;
 	char colorOfTheTurn[8];
 	int numberLeft = 0;
-	int n = 0, o = 0, port, cardsNumber, co = 0, ca = 0, tr = 0, pi = 0, pa = 0;
+	int timedout = 0, n = 0, o = 0, port, cardsNumber, co = 0, ca = 0, tr = 0, pi = 0, pa = 0, notYourTurn = 1;
 	SOCKADDR_IN sin = { 0 };
 	struct sigaction interrupt;
+	struct timeval tv;
+	fd_set readfds;
 	sigset_t set;
 	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));
 	SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
@@ -73,7 +75,7 @@ int main(int argc, char** argv) {
 		/* TO DISCUSS TODO */
 		exit(0);
 	}
-	
+
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
 	while(1) {
 		/* Waiting for the server */
@@ -91,14 +93,14 @@ int main(int argc, char** argv) {
 	mReader(&sem, &nbLect, &shm, PLAYERS);
 	while(1){
 		/* Print payoo */
-		/* Waiting for the server */		
+		/* Waiting for the server */
 		readJ(&buffer);
 		printf("Le payoo est %s\n\nVoici vos cartes :\n", buffer.content);
 
 		/* Card's draw */
 		n = 0;
 		while(1){
-			/* Waiting for the server */			
+			/* Waiting for the server */
 			readJ(&buffer);
 			fflush(stdin);
 			if(buffer.status == 202) {
@@ -181,11 +183,45 @@ int main(int argc, char** argv) {
 			}
 			n++;
 		}
-
 		/* TODO consulter informations */
-		printf("Vous attendez votre tour. Vous pouvez consulter des informations en attendant.[TODO]\n");
 		while(1){
-			/* Waiting for the server */			
+			printf("Vous attendez votre tour.\n");
+			fflush(stdin);
+			while(1) {
+				printf("Vous pouvez consulter des informations en attendant.\n1. Afficher les scores\n2. Afficher mes cartes\n");
+				tv.tv_sec = 60;
+				tv.tv_usec = 0;
+				FD_ZERO(&readfds);
+				FD_SET(sock, &readfds);
+				FD_SET(0, &readfds);
+				if((timedout = select(sock + 1, &readfds, NULL, NULL, &tv)) == ERROR) {
+					perror("select()");
+					exit(ERRNO);
+				} else if(timedout != 0) {
+					if(FD_ISSET(sock, &readfds)) {
+						printf("Attention ton tour commence\n");
+						break;
+					} else if(FD_ISSET(0, &readfds)) {
+						keyboardReader(&charBuf);
+						if(atoi(charBuf) == 1) {
+							mReader(&sem, &nbLect, &shm, SCORE);
+						} else if(atoi(charBuf) == 2) {
+							n=0;
+							while (cardsNumber > n) {
+								if(cards[n].id ==-1) {
+									n++;
+									continue;
+								}
+								printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
+								n++;
+							}
+						} else {
+							printf("Mauvais chiffre entré, veuillez réitérer votre opération\n");
+						}
+					}
+				}
+			}
+			/* Waiting for the server */
 			readJ(&buffer);
 			while (buffer.status == 204) {
 				strcpy(colorOfTheTurn,"Empty");
@@ -258,7 +294,7 @@ int main(int argc, char** argv) {
 			/* Fin manche */
 
 			if (buffer.status == 206){
-				/* Waiting for the server */				
+				/* Waiting for the server */
 				readJ(&buffer);
 				printf("%s\n", buffer.content);
 				break;
@@ -357,6 +393,3 @@ void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	SYS(sigaction(SIGINT, interrupt, NULL));
 	SYS(sigaction(SIGQUIT, interrupt, NULL));
 }
-
-
-

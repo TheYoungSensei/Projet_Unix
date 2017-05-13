@@ -113,6 +113,12 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
 				printf("%d de %s\n", (*shm)->cards[i].value, (*shm)->cards[i].color);
 			}
 			break;
+    case SCORE :
+      tmp = (*shm)->nbPlayers;
+      for(i = 0; i < tmp; i++) {
+        printf("Le Joueur : %s a %d points.\n", (*shm)->players[i].pseudo, (*shm)->players[i].score);
+      }
+      break;
 		}
 		semDown(sem, 0);
 		**nbLecteur = **nbLecteur -1;
@@ -206,4 +212,3 @@ void closeIPCs(memory ** shm, int** nbLect, semaphore ** sem) {
 	/*semctl((*sem)->semid[0], (*sem)->sop[0].sem_num, IPC_RMID, NULL);
   semctl((*sem)->semid[1], (*sem)->sop[1].sem_num, IPC_RMID, NULL);*/
 }
-
