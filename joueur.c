@@ -27,9 +27,11 @@ void interruptHandler(int sigint) {
 int main(int argc, char** argv) {
 	message buffer;
 	char ligne[1024];
-	char * name;
+	char * charBuf;
+	char * charBuf2;
 	const char *hostname;
-	int n = 0, port;
+	card * cards;
+	int n = 0, o = 0, port, cardsNumber;
 	SOCKADDR_IN sin = { 0 };
 	struct sigaction interrupt;
 	sigset_t set;
@@ -37,6 +39,7 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "joueur <port> <ipHost>\n");
 		return ERROR;
 	}
+	SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
 	port = atoi(*++argv);
 	hostname = *++argv;
 	sock = joueurInit(hostname, &sin, port);
@@ -50,8 +53,8 @@ int main(int argc, char** argv) {
 	/* readJing the userName */
 	printf("Veuillez entrer votre pseudo : \n");
 	fflush(stdin);
-	keyboardReader(&name);
-	strcpy(buffer.content, name);
+	keyboardReader(&charBuf);
+	strcpy(buffer.content, charBuf);
 	buffer.status = 200;
 	sendJ(&buffer);
 	if (buffer.status == 500){
@@ -67,23 +70,139 @@ int main(int argc, char** argv) {
 		if(buffer.status == 201) {
 			break;
 		}
+		if(buffer.status == 202) {
+			printf("card : %s\n", buffer.content);
+		}
 	}
+
 	/* Game's Beginning - End of Login Phase */
 	mReader(&sem, &nbLect, &shm, PLAYERS);
+
+	/* Card's first draw */	
+	n = 0;
+	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));	
+	while(1){
+		readJ(&buffer);
+		fflush(stdin);
+		if(buffer.status == 202) {
+			cards[n] = createCard(atoi(buffer.content));
+			printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
+			n++;
+		}
+		if(buffer.status == 500) {
+			break;
+		}
+	}
+	cardsNumber = n;
+	printf("Veuillez entrer les 5 numéros de carte à écarter.\n");
+	fflush(stdin);
+	n=0, o = 0;
+	strcpy(buffer.content, "");
+	while (n<5){
+		keyboardReader(&charBuf);
+		o = atoi(charBuf)-1;
+		/* check if the card isn't already picked */
+		char* tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
+		strcpy(tempstr, buffer.content);
+		charBuf2 = strtok(tempstr, " ");
+  		while (charBuf2 != NULL) {
+			if (atoi(charBuf2) == o+1) {
+			o = -1;
+			}
+    		 	charBuf2 = strtok(NULL, " ");
+  		}
+		if (o < 0 || o > cardsNumber){
+			printf("Vous devez entrer un nombre valide. Non déjà entré et compris entre 1 et %d !\n",cardsNumber);
+		} else {
+
+		charBuf[strcspn(charBuf, "\n")] = 0;
+		cards[o].value = -1;
+		strcpy(cards[o].color,"");
+		cards[o].id = -1;
+		strcat(buffer.content, strcat(charBuf," "));
+		n++;
+		}
+	}
+	printf("You removed cards %s\n You are now waiting for every player to remove their cards.\n",buffer.content);
+	sendJ(&buffer);
+	strcpy(charBuf, "");
+	n=0;
+	while(1){
+		readJ(&buffer);	
+		if (buffer.status == 203) {	
+			printf("You got these cards : %s\n",buffer.content);
+  			charBuf = strtok(buffer.content, " ");
+  			while (charBuf != NULL) {
+				while (cards[n].id != -1){
+					n++;
+					if (n>30) {
+						printf("Erreur lors de la réception des cartes écartées.");
+						break;
+					}
+				}
+				cards[n] = createCard(atoi(charBuf));
+				n=0;
+    			 	charBuf = strtok(NULL, " ");
+  			}
+			break;
+		}
+	}
+	printf("Marvelous, here's your hand !\n");
+	n=0;
+	while (cardsNumber > n) {
+		printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
+		n++;	
+	}
+	printf("You are waiting for your turn. You can check things if you do things [TODO]\n");
+
+
+	printf("End of the game\n");		
 	close(sock);
 	closeIPCs(&shm, &nbLect, &sem);
+}
+
+
+/*
+ * Used to create a card from it's id.
+ */
+card createCard(int id){
+	card toReturn;
+	toReturn.id = id;
+	switch(id){
+		case 0 ... 9 :
+			strcpy(toReturn.color,"Coeur");
+			toReturn.value = id-0;
+		break;
+		case 10 ... 19:
+			strcpy(toReturn.color,"Carreau");
+			toReturn.value = id-10;
+		break;
+		case 20 ... 29:
+			strcpy(toReturn.color,"Trèfle");
+			toReturn.value = id-20;
+		break;
+		case 30 ... 39:
+			strcpy(toReturn.color,"Pique");
+			toReturn.value = id-30;
+		break;
+		case 40 ... 59:
+			strcpy(toReturn.color,"Papayoo");
+			toReturn.value = id-40;
+		break;
+	}
+	return toReturn;
 }
 
 /*
  * Used to readJ an input from the keyboard.
  */
-void keyboardReader(char** name){
-	SYSN(((*name) = (char *) malloc(sizeof(char) * NAME_LENGTH)));
-	SYSN((fgets(*(name), NAME_LENGTH, stdin)));
-	if((*name)[strlen(*name)-1] != '\n'){
+void keyboardReader(char** charBuf){
+	SYSN((*charBuf) = (char *) malloc(sizeof(char) * 256));
+	SYSN((fgets(*(charBuf), NAME_LENGTH, stdin)));
+	if((*charBuf)[strlen(*charBuf)-1] != '\n'){
 		perror("Trop grande ligne lue\n");
-		while((*name)[strlen(*name) -1] != '\n'){
-			fgets(*(name), NAME_LENGTH, stdin);
+		while((*charBuf)[strlen(*charBuf) -1] != '\n'){
+			fgets(*(charBuf), NAME_LENGTH, stdin);
 			exit(11);
 		}
 	}

@@ -58,7 +58,7 @@ semaphore *sembufInit() {
 }
 
 int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
-  int i, tmp, score;
+  int i, tmp;
   char * pseudo;
   while(TRUE) {
     semDown(sem, 0);
@@ -75,11 +75,10 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
         tmp = (*shm)->nbPlayers;
         for(i = 0; i < tmp; i++) {
           pseudo = (*shm)->players[i].pseudo;
-          score = (*shm)->players[i].score;
           if(pseudo == NULL) {
             printf("NULL\n");
           } else {
-            printf("%s a : %d points\n", pseudo, score);
+            printf("%s a est le joueur n°%d\n", pseudo, i);
           }
         }
         break;
@@ -89,7 +88,7 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
       case CARDS :
         tmp = (*shm)->nbCards;
         for(i = 0; i < tmp; i++) {
-          printf("%d de %c\n", (*shm)->cards[i].value, (*shm)->cards[i].color);
+          printf("%d de %s\n", (*shm)->cards[i].value, (*shm)->cards[i].color);
         }
         break;
     }
@@ -108,7 +107,7 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
 void addCard(semaphore **sem, int **nbLecteur,  memory **shm, card card) {
   int nbCards = mReader(sem, nbLecteur, shm, NB_CARDS);
   semDown(sem, 1);
-  (*shm)->cards[nbCards].color = card.color;
+  strcpy((*shm)->cards[nbCards].color, card.color);
   (*shm)->cards[nbCards].value = card.value;
   (*shm)->nbCards = nbCards + 1;
   semUp(sem, 1);

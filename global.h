@@ -29,6 +29,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <time.h>
+
 
 #define TRUE 1
 #define ERROR -1
@@ -49,8 +51,9 @@ typedef struct message {
 } message;
 
 typedef struct card {
-  char color;
+  char color[8];
   int value;
+  int id;
   /* Maybe int played; 0 - 1 */
 } card;
 

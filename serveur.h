@@ -32,3 +32,5 @@ void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buf
 void closeSockets(SOCKET *sock, client **clients);
 void setHandler(struct sigaction * interrupt, sigset_t *set);
 int readS(int position, message *  buffer);
+void shuffle(int *array, size_t n);
+void giveCards(memory* shm, message* buffer, client* clients);

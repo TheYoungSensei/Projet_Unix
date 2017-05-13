@@ -16,9 +16,9 @@
 int serverInt = 0, acceptNbr = 0, timeoutInt = 0,  pseudosNbr = 0;
 SOCKET sock;
 client * clients;
-memory* shm;
+memory * shm;
 int * nbLect;
-semaphore *sem;
+semaphore * sem;
 
 void interruptHandler(int sigint) {
 	printf("Interruption du serveur : %d\n", sigint);
@@ -36,8 +36,10 @@ void serverInterrupt(int sig) {
 }
 
 int main(int argc, char** argv) {
+	srand(time(NULL)); 	
 	SOCKADDR_IN sin, csin;
 	message buffer;
+	message * allMessages;	
 	player player;
 	struct timeval tv;
 	struct sigaction act, actInt, interrupt;
@@ -100,7 +102,7 @@ int main(int argc, char** argv) {
 		} else {
 			if (FD_ISSET(sock, &readfds)){
 				if (acceptNbr == 0) { /* If known pseudos's number = 1 */
-					alarm(15); //TODO return to 30
+					alarm(5); //TODO return to 30
 				}
 				clients[acceptNbr].pseudoKnown = 0;
 				SYS((clients[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
@@ -125,6 +127,10 @@ int main(int argc, char** argv) {
 	/* Unblocking signals */
 	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
 	setHandler(&interrupt, &set);
+
+	/* malloc allMessages */
+       	SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));	
+	
 	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		if(clients[compteur].pseudoKnown == 0) {
@@ -138,14 +144,31 @@ int main(int argc, char** argv) {
 			acceptNbr--;
 		}
 	}
-	sendMsgToPlayers("Lancement de la partie !", 201, acceptNbr, buffer, clients);
 	/* Notifying all users about the game's beginning */
+	sendMsgToPlayers("Lancement de la partie !\n Voici le placement des joueurs (2 est à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
+	/* Adding the players into the sharedMemory */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		strcpy(player.pseudo, clients[compteur].pseudo);
 		player.score = 0;
-		addPlayer(&sem, &nbLect, &shm, player); /* Adding the players into the sharedMemory */
+		addPlayer(&sem, &nbLect, &shm, player);
 	}
-/* Future game's handeling */
+	/* Giving cards to players */
+	giveCards(shm, &buffer, clients);
+	/* Retrieving removed cards */
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
+		readS(compteur, &buffer);	
+		strcpy(allMessages[compteur].content, buffer.content);
+	}	
+	
+	/* Sending removed cards to players on their left ((compteur+1)%acceptNbr) */
+	for(compteur = 0; compteur < acceptNbr; compteur++) {
+		allMessages[compteur].status = 203;
+		SYS(sendSocket(clients[(compteur+1)%acceptNbr].sock, &(allMessages[compteur])));
+	}
+
+	
+	/* Future game's handeling */
+
 
 	/* Closing every socket  */
 	SYS(closesocket(sock));
@@ -156,6 +179,54 @@ int main(int argc, char** argv) {
 	closeIPCs(&shm, &nbLect, &sem);
 }
 
+
+
+
+
+
+
+
+
+
+/*
+ * Used to give cards to players.
+ */
+
+void giveCards(memory* shm, message* buffer, client* clients){
+	int i, compteur, compteur2, nbP = shm->nbPlayers;
+	int *list;
+	list  = (int *) malloc(MAXCARDS * sizeof(int));
+	for(i=0; i<MAXCARDS; i++){
+    		list[i] = i;
+	}
+	shuffle(list, MAXCARDS);
+	for(compteur = 0; compteur < nbP; compteur++) {
+	buffer->status = 202;
+		for (compteur2=0;compteur2<MAXCARDS/nbP;compteur2++){
+			sprintf(buffer->content,"%d",list[compteur2+compteur*MAXCARDS/nbP]);
+			SYS(sendSocket(clients[compteur].sock, buffer));			
+		}
+		buffer->status = 500;		
+		SYS(sendSocket(clients[compteur].sock, buffer));					
+	}
+}
+
+/*
+ * Used to randomize the order of cards.
+ */
+void shuffle(int *array, size_t n){
+    if (n > 1) 
+    {
+        size_t i;
+        for (i = 0; i < n - 1; i++) 
+        {
+          size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
+          int t = array[j];
+          array[j] = array[i];
+          array[i] = t;
+        }
+    }
+}
 
 /*
  * Used to make the server reacting like a singleton.

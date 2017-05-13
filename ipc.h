@@ -26,6 +26,8 @@
 #define NB_PLAYERS 3
 #define NB_CARDS 4
 #define NAME_LENGTH 64
+#define MAXCARDS 60
+
 
 typedef struct semaphore {
   struct sembuf sop[2];
