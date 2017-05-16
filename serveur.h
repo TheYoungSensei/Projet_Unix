@@ -23,6 +23,8 @@ typedef struct client {
   SOCKET sock;
 } client;
 
+static const struct sigaction emptySig;
+
 #endif
 
 void lock();
@@ -35,5 +37,3 @@ int readS(int position, message *  buffer);
 void shuffle(int *array, size_t n);
 void giveCards(memory* shm, message* buffer, client* clients);
 card createCard(int id);
-
-

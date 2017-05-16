@@ -28,7 +28,6 @@
 #define SCORE 5
 #define NAME_LENGTH 64
 #define MAXCARDS 60
-#define NOMBRE_MANCHE 4
 
 typedef struct semaphore {
   struct sembuf sop[2];
@@ -63,4 +62,3 @@ void semDown(semaphore ** sem, int type);
 void initSharedMemory(memory **shm, int **nbLect, semaphore **sem);
 void closeIPCs(memory ** shm, int** nbLect);
 void closeAllIPCs(memory **shm, int **nbLect, semaphore **sem);
-

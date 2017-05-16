@@ -63,6 +63,9 @@ int main(int argc, char** argv) {
 	/* Waiting for the server */
 	readJ(&buffer);
 	printf("%s", buffer.content);
+	if(buffer.status == 500) {
+		exit(0);
+	}
 
 	/* readJ-ing the user's name */
 	printf("Veuillez entrer votre pseudo : \n");
@@ -92,14 +95,14 @@ int main(int argc, char** argv) {
 	mReader(&sem, &nbLect, &shm, PLAYERS);
 	while(1){
 		/* Print payoo */
-		/* Waiting for the server */		
+		/* Waiting for the server */
 		readJ(&buffer);
 		printf("Le payoo est %s\n\nVoici vos cartes :\n", buffer.content);
 
 		/* Card's draw */
 		n = 0;
 		while(1){
-			/* Waiting for the server */			
+			/* Waiting for the server */
 			readJ(&buffer);
 			fflush(stdin);
 			if(buffer.status == 202) {
@@ -221,7 +224,7 @@ int main(int argc, char** argv) {
 					}
 				}
 			}
-			/* Waiting for the server */			
+			/* Waiting for the server */
 			readJ(&buffer);
 			while (buffer.status == 204) {
 				strcpy(colorOfTheTurn,"Empty");
@@ -294,7 +297,7 @@ int main(int argc, char** argv) {
 			/* Fin manche */
 
 			if (buffer.status == 206){
-				/* Waiting for the server */				
+				/* Waiting for the server */
 				readJ(&buffer);
 				printf("%s\n", buffer.content);
 				break;
@@ -346,8 +349,12 @@ card createCard(int id){
  */
 void keyboardReader(char** charBuf){
 	SYSN((*charBuf) = (char *) malloc(sizeof(char) * 256));
-	SYSN((fgets(*(charBuf), NAME_LENGTH, stdin)));
-	if((*charBuf)[strlen(*charBuf)-1] != '\n'){
+	if ((fgets(*(charBuf), NAME_LENGTH, stdin)) == NULL) {
+		printf("Nous fermons votre connexion ....\n");
+		closesocket(sock);
+		closeIPCs(&shm, &nbLect);
+		exit(ERRNO);
+	} else if((*charBuf)[strlen(*charBuf)-1] != '\n'){
 		perror("Trop grande ligne lue\n");
 		while((*charBuf)[strlen(*charBuf) -1] != '\n'){
 			fgets(*(charBuf), NAME_LENGTH, stdin);

@@ -72,6 +72,13 @@ int serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i) {
 	SOCKET csock;
 	SYS((csock = accept(sock, (SOCKADDR *) csin, (socklen_t *) sinsize)));
+	if(i == MAX_PLAYER) {
+		buffer->status = 500;
+		sprintf(buffer->content, "La partie est pleine\n");
+		sendSocket(csock, buffer);
+		closesocket(csock);
+		return -1;
+	}
 	buffer->status = 200;
 	sprintf(buffer->content, "Bienvenue sur le jeu de Papayoo du groupe manietSacre.\nIl y a actuellement %d joueur(s) connecté(s).\n", i + 1);
 	sendSocket(csock, buffer); /* TO DO */
@@ -93,5 +100,3 @@ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	return sock;
 }
-
-

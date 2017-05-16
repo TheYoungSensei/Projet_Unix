@@ -13,7 +13,7 @@
 #include "serveur.h"
 
 /* Needed outside of the main and more precisely in signals management */
-int serverInt = 0, acceptNbr = 0, timeoutInt = 0,  pseudosNbr = 0;
+int serverInt = 0, acceptNbr = 0, timeoutInt = 0,  pseudosNbr = 0, inGame = 0;
 SOCKET sock;
 client * clients;
 memory * shm;
@@ -43,12 +43,19 @@ void timeout(int bla){
 void serverInterrupt(int sig) {
 	/* Server Interrupt CTRL-C */
 	serverInt = 1;
-}int main(int argc, char** argv) {
+	/* CTRL-C as been caught */
+	closeSockets(&sock, &clients);
+	closeAllIPCs(&shm, &nbLect, &sem);
+	exit(0);
+}
+
+int main(int argc, char** argv) {
 	srand(time(NULL));
 	SOCKADDR_IN sin, csin;
 	message buffer;
 	message * allMessages;
 	player player;
+	int trash;
 	char * charBuf;
 	char * charBuf2;
 	char payoo[8];
@@ -75,221 +82,244 @@ void serverInterrupt(int sig) {
 	/* Lock */
 	lock();
 	/* Server's initialisation */
-	SYS(serverInit(&sock, &sin, port));
-	sinsize = sizeof csin;
-	/* Sigaction's initialisation */
-	serverSigaction(&act, &actInt, &set);
-	initSharedMemory(&shm, &nbLect, &sem);
-	SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
-	SYSN((charBuf) = (char *) malloc(sizeof(char) * 256));
-	SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
-	/* Parametring registration's select */
-	maxFd = sock;
-	tv.tv_sec = 3;
-	tv.tv_usec = 0;
-	/* Begin registration's while */
-	while(1) {
-		usleep(50);
-		/* After 30 sec if there are 2 players or more */
-		if(timeoutInt == 1 && pseudosNbr > 1) {
-			printf("La partie va commencer\n");
-			break;
-		}
+	while(1) { /* Server is Running */
+		SYS(serverInit(&sock, &sin, port));
+		/*act = emptySig;
+		actInt = emptySig;
+		interrupt = emptySig;
+		totalScore = 0;
+		winner = 0;
+		maxValue = 0;
+		notNull = 0;
+		i = 0;
+		sinsize = 0;
+		port = 0;
+		n = 0;
+		manche = 0;
+		tour = 0;
+		compteur = 0;
+		timedout = 0;*/
+		sinsize = sizeof csin;
+		/*serverInt = 0;
+		acceptNbr = 0;
+		timeoutInt = 0;
+		pseudosNbr = 0;*/
+		/* Sigaction's initialisation */
+		serverSigaction(&act, &actInt, &set);
+		initSharedMemory(&shm, &nbLect, &sem);
+		SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
+		SYSN((charBuf) = (char *) malloc(sizeof(char) * 256));
+		SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
 		/* Parametring registration's select */
-		FD_ZERO(&readfds);
-		FD_SET(sock, &readfds);
-		/* Add every player to the select */
-		for (compteur = 0 ; compteur < acceptNbr; compteur++){
-			FD_SET(clients[compteur].sock, &readfds);
-			if (clients[compteur].sock>maxFd) maxFd = clients[compteur].sock;
-		}
-		if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == ERROR){
-			if (errno == EINTR){
-				if (serverInt == 1) {
-					/* CTRL-C as been caught */
-					closeSockets(&sock, &clients);
-					closeAllIPCs(&shm, &nbLect, &sem);
-					exit(0);
-				} else if (timeoutInt == 1) {
-					/* SIGALRM as been caught */
-					continue;
-				}
+		maxFd = sock;
+		tv.tv_sec = TEMPS_SELECT;
+		tv.tv_usec = 0;
+		/* Begin registration's while */
+		while(1) {
+			usleep(50);
+			/* After 30 sec if there are 2 players or more */
+			if(timeoutInt == 1 && pseudosNbr > 1) {
+				printf("La partie va commencer\n");
+				break;
 			}
-			perror("select()");
-			exit(ERRNO);
-		} else {
-			if (FD_ISSET(sock, &readfds)){
-				if (acceptNbr == 0) { /* If known pseudos's number = 1 */
-					alarm(5); //TODO return to 30
+			/* Parametring registration's select */
+			FD_ZERO(&readfds);
+			FD_SET(sock, &readfds);
+			/* Add every player to the select */
+			for (compteur = 0 ; compteur < acceptNbr; compteur++){
+				FD_SET(clients[compteur].sock, &readfds);
+				if (clients[compteur].sock>maxFd) maxFd = clients[compteur].sock;
+			}
+			if((timedout = select(maxFd+1, &readfds, NULL, NULL, &tv)) == ERROR){
+				if (errno == EINTR){
+					if (serverInt == 1) {
+						/* CTRL-C as been caught */
+						closeSockets(&sock, &clients);
+						closeAllIPCs(&shm, &nbLect, &sem);
+						exit(0);
+					} else if (timeoutInt == 1) {
+						/* SIGALRM as been caught */
+						continue;
+					}
 				}
-				clients[acceptNbr].pseudoKnown = 0;
-				SYS((clients[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
-				acceptNbr++;
+				perror("select()");
+				exit(ERRNO);
 			} else {
-				for (compteur = 0 ; compteur < acceptNbr; compteur++){
-					if(FD_ISSET(clients[compteur].sock, &readfds)) {
-						SYS(n = readS(compteur, &buffer));
-						if(n != 0) {
-							/* Adding the pseudo of a player */
-							clients[compteur].pseudoKnown = 1;
-							SYSN((clients[compteur].pseudo = (char *) malloc(sizeof(char) * n)));
-							strcpy(clients[compteur].pseudo, buffer.content);
-							clients[compteur].pseudo[strlen(clients[compteur].pseudo) - 1] = '\0';
-							pseudosNbr++;
+				if (FD_ISSET(sock, &readfds)){
+					if (acceptNbr == 0) { /* If known pseudos's number = 1 */
+						alarm(INSCRIPTION_TIME); //TODO return to 30
+					}
+					if(acceptNbr == MAX_PLAYER) {
+						acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr);
+					} else {
+						clients[acceptNbr].pseudoKnown = 0;
+						SYS((clients[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
+						acceptNbr++;
+					}
+				} else {
+					for (compteur = 0 ; compteur < acceptNbr; compteur++){
+						if(FD_ISSET(clients[compteur].sock, &readfds)) {
+							SYS(n = readS(compteur, &buffer));
+							if(n != 0) {
+								/* Adding the pseudo of a player */
+								clients[compteur].pseudoKnown = 1;
+								SYSN((clients[compteur].pseudo = (char *) malloc(sizeof(char) * n)));
+								strcpy(clients[compteur].pseudo, buffer.content);
+								clients[compteur].pseudo[strlen(clients[compteur].pseudo) - 1] = '\0';
+								pseudosNbr++;
+							}
 						}
 					}
 				}
 			}
 		}
-	}
-	/* Unblocking signals */
-	SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
-	setHandler(&interrupt, &set);
+		/* Unblocking signals */
+		SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
+		setHandler(&interrupt, &set);
 
-	/* malloc allMessages */
-	SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));
+		/* malloc allMessages */
+		SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));
 
-	/* Sending a message to all accepted but not known players */
-	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		if(clients[compteur].pseudoKnown == 0) {
-			buffer.status = 201;
-			strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
-			SYS(sendSocket(clients[compteur].sock, &buffer));
-			SYS(closesocket(clients[compteur].sock));
-			for(i = compteur; i < acceptNbr-1; i++) {
-				clients[i] = clients[i+1];
+		/* Sending a message to all accepted but not known players */
+		for(compteur = 0; compteur < acceptNbr; compteur++) {
+			if(clients[compteur].pseudoKnown == 0) {
+				buffer.status = 201;
+				strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
+				SYS(sendSocket(clients[compteur].sock, &buffer));
+				SYS(closesocket(clients[compteur].sock));
+				for(i = compteur; i < acceptNbr-1; i++) {
+					clients[i] = clients[i+1];
+				}
+				acceptNbr--;
 			}
-			acceptNbr--;
 		}
-	}
-	/* Notifying all users about the game's beginning */
-	sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
-	/* Adding the players into the sharedMemory */
-	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		strcpy(player.pseudo, clients[compteur].pseudo);
-		player.score = 0;
-		addPlayer(&sem, &nbLect, &shm, player);
-	}
-
-	/* Start of the "manches" */
-	while (manche < NOMBRE_MANCHE){
-		/* Choosing payoo */
-		n = rand()%4;
-		switch (n){
-		case 0:
-			strcpy(payoo, "Coeur");
-			break;
-		case 1:
-			strcpy(payoo, "Carreau");
-			break;
-		case 2:
-			strcpy(payoo, "Trèfle");
-			break;
-		case 3:
-			strcpy(payoo, "Pique");
-			break;
-		}
-		sprintf(charBuf, "%s\n", payoo);
-		sendMsgToPlayers(charBuf, 202, acceptNbr, buffer, clients);
-
-		/* Giving cards to players */
-		giveCards(shm, &buffer, clients);
-		shm->nbCards = 0;
-		/* Retrieving removed cards */
+		/* Notifying all users about the game's beginning */
+		sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
+		/* Adding the players into the sharedMemory */
 		for(compteur = 0; compteur < acceptNbr; compteur++) {
-			readS(compteur, &buffer);
-			strcpy(allMessages[compteur].content, buffer.content);
+			strcpy(player.pseudo, clients[compteur].pseudo);
+			player.score = 0;
+			addPlayer(&sem, &nbLect, &shm, player);
 		}
 
-		/* Sending removed cards to players on their left ((compteur+1)%acceptNbr). allMessages -> Because we need to end the withdraws before sending cards back */
-		for(compteur = 0; compteur < acceptNbr; compteur++) {
-			allMessages[compteur].status = 203;
-			SYS(sendSocket(clients[(compteur+1)%acceptNbr].sock, &(allMessages[compteur])));
-		}
+		/* Start of the "manches" */
+		while (manche < NOMBRE_MANCHE){
+			/* Choosing payoo */
+			n = rand()%4;
+			switch (n){
+			case 0:
+				strcpy(payoo, "Coeur");
+				break;
+			case 1:
+				strcpy(payoo, "Carreau");
+				break;
+			case 2:
+				strcpy(payoo, "Trèfle");
+				break;
+			case 3:
+				strcpy(payoo, "Pique");
+				break;
+			}
+			sprintf(charBuf, "%s\n", payoo);
+			sendMsgToPlayers(charBuf, 202, acceptNbr, buffer, clients);
 
-		/* Player number (manche+tour)%acceptNbr is beginning the "manche" */
-		strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
-		card cards[acceptNbr];
-		/* TODO 6 -> 60 */
-		/* TODO @ManietAntoine */
-		while (shm->nbCards < 6) {
-			buffer.status = 204;
-			strcpy(buffer.content, charBuf);
-			SYS(sendSocket(clients[(acceptNbr+winner+manche+tour)%acceptNbr].sock, &buffer));
-			readS((acceptNbr+winner+manche+tour)%acceptNbr, &buffer);
-			strcat(charBuf, buffer.content);
-			strcat(charBuf,"_");
-			cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
-			addCard(&sem,&nbLect, &shm, atoi(buffer.content));
-			tour++;			
-			if (tour%acceptNbr==0){
-				/* Fin de tour. Traitement des cartes jouées, message de fin de tour aux joueurs, édition du score */
-				for (n=0;n<acceptNbr;n++){
-					printf("%d\n",(manche+tour)%acceptNbr+n);
-					if (n==0){
-						strcpy(color,cards[(manche+tour+n)%acceptNbr].color);
-						maxValue = cards[(manche+tour+n)%acceptNbr].value;
-						printf("%d\n",maxValue);
-						winner = (manche+tour)%acceptNbr+n;
-					}
-					if (cards[(manche+tour)%acceptNbr+n].value == 7 && !strcmp(cards[((manche+tour)+n)%acceptNbr].color, payoo)){
-						totalScore = totalScore+40;
-					}
-					if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, "Papayoo")){
-						totalScore = totalScore+cards[((manche+tour)+n)%acceptNbr].value;
-					}
+			/* Giving cards to players */
+			giveCards(shm, &buffer, clients);
+			shm->nbCards = 0;
+			/* Retrieving removed cards */
+			for(compteur = 0; compteur < acceptNbr; compteur++) {
+				readS(compteur, &buffer);
+				strcpy(allMessages[compteur].content, buffer.content);
+			}
 
-					if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, color)){
-						printf("in cmp %d\n",maxValue);
-						printf("in cmp %d\n",cards[((manche+tour)+n)%acceptNbr].value);
-						if (maxValue < cards[((manche+tour)+n)%acceptNbr].value){
-							maxValue = cards[((manche+tour)+n)%acceptNbr].value;
-							winner = ((manche+tour)+n)%acceptNbr;
-							printf("winner : %d\n",(manche+tour+n)%acceptNbr);
-						} else {
-							printf("winner : %d\n",winner);
+			/* Sending removed cards to players on their left ((compteur+1)%acceptNbr). allMessages -> Because we need to end the withdraws before sending cards back */
+			for(compteur = 0; compteur < acceptNbr; compteur++) {
+				allMessages[compteur].status = 203;
+				SYS(sendSocket(clients[(compteur+1)%acceptNbr].sock, &(allMessages[compteur])));
+			}
+
+			/* Player number (manche+tour)%acceptNbr is beginning the "manche" */
+			strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
+			card cards[acceptNbr];
+			/* TODO 6 -> 60 */
+			/* TODO @ManietAntoine */
+			while (shm->nbCards < 6) {
+				buffer.status = 204;
+				strcpy(buffer.content, charBuf);
+				SYS(sendSocket(clients[(acceptNbr+winner+manche+tour)%acceptNbr].sock, &buffer));
+				readS((acceptNbr+winner+manche+tour)%acceptNbr, &buffer);
+				strcat(charBuf, buffer.content);
+				strcat(charBuf,"_");
+				cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
+				addCard(&sem,&nbLect, &shm, atoi(buffer.content));
+				tour++;
+				if (tour%acceptNbr==0){
+					/* Fin de tour. Traitement des cartes jouées, message de fin de tour aux joueurs, édition du score */
+					for (n=0;n<acceptNbr;n++){
+						printf("%d\n",(manche+tour)%acceptNbr+n);
+						if (n==0){
+							strcpy(color,cards[(manche+tour+n)%acceptNbr].color);
+							maxValue = cards[(manche+tour+n)%acceptNbr].value;
+							printf("%d\n",maxValue);
+							winner = (manche+tour)%acceptNbr+n;
+						}
+						if (cards[(manche+tour)%acceptNbr+n].value == 7 && !strcmp(cards[((manche+tour)+n)%acceptNbr].color, payoo)){
+							totalScore = totalScore+40;
+						}
+						if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, "Papayoo")){
+							totalScore = totalScore+cards[((manche+tour)+n)%acceptNbr].value;
+						}
+
+						if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, color)){
+							printf("in cmp %d\n",maxValue);
+							printf("in cmp %d\n",cards[((manche+tour)+n)%acceptNbr].value);
+							if (maxValue < cards[((manche+tour)+n)%acceptNbr].value){
+								maxValue = cards[((manche+tour)+n)%acceptNbr].value;
+								winner = ((manche+tour)+n)%acceptNbr;
+								printf("winner : %d\n",(manche+tour+n)%acceptNbr);
+							} else {
+								printf("winner : %d\n",winner);
+							}
 						}
 					}
+					sprintf(charBuf, "Résultat du tour : \nLe joueur '%s' perd ce tour.\nIl remporte un score de %d.\n", shm->players[winner].pseudo,totalScore );
+					sendMsgToPlayers(charBuf, 205, acceptNbr, buffer, clients);
+					shm->players[winner].score =  shm->players[winner].score + totalScore;
+					totalScore = 0;
+					strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
 				}
-				sprintf(charBuf, "Résultat du tour : \nLe joueur '%s' perd ce tour.\nIl remporte un score de %d.\n", shm->players[winner].pseudo,totalScore );
-				sendMsgToPlayers(charBuf, 205, acceptNbr, buffer, clients);
-				shm->players[winner].score =  shm->players[winner].score + totalScore;
-				totalScore = 0;
-				strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
+			}
+			/* Message de fin de manche. Rappel des points actuels aux joueurs. Empty cards in SHM */
+			strcpy(charBuf, "Résultat de la manche. Les scores des joueurs sont les suivants : \n");
+			for (n=0;n<acceptNbr;n++){
+				sprintf(charBuf2,"%s : %d.\n", shm->players[n].pseudo, shm->players[n].score);
+				strcat(charBuf, charBuf2);
+			}
+			sendMsgToPlayers(charBuf, 206, acceptNbr, buffer, clients);
+			for (n=0;n<60;n++){
+				shm->cards[n].id = -1;
+			}
+
+		}
+		/* Message de fin de partie. Gagnant déterminé. Message d'au revoir. */
+		strcpy(charBuf, "");
+		n = 250;
+		for (compteur=0;compteur<acceptNbr;compteur++){
+			if (shm->players[compteur].score < n){
+				n = shm->players[compteur].score;
+				strcpy(charBuf, "");
+				sprintf(charBuf, "Le grand gagnant est '%s' avec un score de seulement %d\n",  shm->players[compteur].pseudo, shm->players[compteur].score);
 			}
 		}
-		/* Message de fin de manche. Rappel des points actuels aux joueurs. Empty cards in SHM */
-		strcpy(charBuf, "Résultat de la manche. Les scores des joueurs sont les suivants : \n");
-		for (n=0;n<acceptNbr;n++){
-			sprintf(charBuf2,"%s : %d.\n", shm->players[n].pseudo, shm->players[n].score);
-			strcat(charBuf, charBuf2);
-		}
-		sendMsgToPlayers(charBuf, 206, acceptNbr, buffer, clients);
-		for (n=0;n<60;n++){
-			shm->cards[n].id = -1;
+		sendMsgToPlayers(charBuf, 210, acceptNbr, buffer, clients);
+		sendMsgToPlayers("Merci d'avoir joué à notre version du Papyoo. Bonne journée !\n", 211, acceptNbr, buffer, clients);
+		for(compteur = 0; compteur < acceptNbr; compteur++) {
+			closesocket(clients[compteur].sock);
 		}
 
-	}
-	/* Message de fin de partie. Gagnant déterminé. Message d'au revoir. */
-	strcpy(charBuf, "");
-	n = 250;
-	for (compteur=0;compteur<acceptNbr;compteur++){
-		if (shm->players[compteur].score < n){
-			n = shm->players[compteur].score;
-			strcpy(charBuf, "");
-			sprintf(charBuf, "Le grand gagnant est '%s' avec un score de seulement %d\n",  shm->players[compteur].pseudo, shm->players[compteur].score);
-		}
-	}
-	sendMsgToPlayers(charBuf, 210, acceptNbr, buffer, clients);
-	sendMsgToPlayers("Merci d'avoir joué à notre version du Papyoo. Bonne journée !\n", 211, acceptNbr, buffer, clients);
-
-
-
-
-	/* Closing every socket  */
-	SYS(closesocket(sock));
-	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		SYS(closesocket(clients[compteur].sock));
+		closeSockets(&sock, &clients);
+		closeAllIPCs(&shm, &nbLect, &sem);
+		exit(0);
 	}
 	closeSockets(&sock, &clients);
 	closeAllIPCs(&shm, &nbLect, &sem);
@@ -468,10 +498,11 @@ int readS(int position, message  * buffer) {
 	int n, notNull, i; /* Number of caracs get by recv */
 	n = readSocket(clients[position].sock, buffer);
 	/* TODO Gestion connexion tardive */
-	/*if(buffer->status == 200 && inGame) {
+	if(buffer->status == 200 && inGame) {
 		buffer->status = 500;
-	}*/
-	printf("n : %d\n", n);
+		printf("n : %d\n", n);
+
+	}
 	if (n == 0) {
 		SYS(closesocket(clients[position].sock));
 		buffer->status = 200;
