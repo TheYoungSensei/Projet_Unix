@@ -24,7 +24,7 @@ int readSocket(SOCKET sock, message *  buffer) {
 			return 0; /* Can be replaced with player.disconnect */
 		}
 		perror("recv()");
-    return -1;
+		return -1;
 	}
 	return n;
 	/* May be improved */
@@ -55,10 +55,10 @@ int serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 	if(bind(*(sock), (SOCKADDR *) sin, sizeof *(sin)) == ERROR) {
 		if( errno == EADDRINUSE ) {
 			fprintf(stderr, "The server is already launched\n");
-      return ERROR;
+			return ERROR;
 		} else {
-				perror("bind()");
-        return ERROR;
+			perror("bind()");
+			return ERROR;
 		}
 	}
 	SYS(listen(*(sock), MAX_PLAYER));
@@ -93,3 +93,4 @@ SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port) {
 	sin->sin_family = AF_INET;
 	return sock;
 }
+

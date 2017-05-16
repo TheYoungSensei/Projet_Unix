@@ -54,7 +54,7 @@ memory *attachMemory(int shmid);
 int *attachMemoryInt(int shmid);
 semaphore *sembufInit();
 int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type);
-void addCard(semaphore **sem, int **nbLecteur,  memory **shm, card card);
+void addCard(semaphore **sem, int **nbLecteur,  memory **shm, int id);
 void addPlayer(semaphore **sem, int **nbLecteur,  memory **shm, player player);
 void removePlayer(semaphore **sem, int **nbLecteur,  memory **shm, int position);
 void semUp(semaphore ** sem, int type);

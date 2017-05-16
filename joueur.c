@@ -18,16 +18,12 @@ int * nbLect;
 semaphore *sem;
 SOCKET sock;
 
-/*
- * Used to catch SIGINT, SIGQUIT and SIGTERM signals during the game.
- */
 void interruptHandler(int sigint) {
 	printf("Signal %d reçu\n", sigint);
 	closeIPCs(&shm, &nbLect, &sem);
 	close(sock);
 	exit(0);
 }
-
 int main(int argc, char** argv) {
 	message buffer;
 	char ligne[1024];
@@ -35,7 +31,8 @@ int main(int argc, char** argv) {
 	char * charBuf2;
 	const char *hostname;
 	card * cards;
-	int n = 0, o = 0, port, cardsNumber;
+	card tmpCard;
+	int n = 0, o = 0, port, cardsNumber, co = 0, ca = 0, tr = 0, pi = 0, pa = 0;
 	SOCKADDR_IN sin = { 0 };
 	struct sigaction interrupt;
 	sigset_t set;
@@ -43,6 +40,7 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "joueur <port> <ipHost>\n");
 		return ERROR;
 	}
+	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));
 	SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
 	port = atoi(*++argv);
 	hostname = *++argv;
@@ -66,7 +64,6 @@ int main(int argc, char** argv) {
 		exit(0);
 	}
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
-	/* Future interactions with the serveur */
 	while(1) {
 		readJ(&buffer);
 		printf("%s\n", buffer.content);
@@ -81,86 +78,181 @@ int main(int argc, char** argv) {
 
 	/* Game's Beginning - End of Login Phase */
 	mReader(&sem, &nbLect, &shm, PLAYERS);
-
-	/* Card's first draw */
-	n = 0;
-	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));
 	while(1){
+		/* Print payoo */
 		readJ(&buffer);
+		printf("Le payoo est %s\n\nVoici vos cartes :\n", buffer.content);
+
+		/* Card's draw */
+		n = 0;
+		while(1){
+			readJ(&buffer);
+			fflush(stdin);
+			if(buffer.status == 202) {
+				cards[n] = createCard(atoi(buffer.content));
+				printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
+				n++;
+			}
+			if(buffer.status == 500) {
+				break;
+			}
+		}
+		cardsNumber = n;
+		printf("Veuillez entrer les 5 numéros de carte à écarter.\n");
 		fflush(stdin);
-		if(buffer.status == 202) {
-			cards[n] = createCard(atoi(buffer.content));
+		n=0, o = 0;
+		strcpy(buffer.content, "");
+		while (n<5){
+			keyboardReader(&charBuf);
+			o = atoi(charBuf)-1;
+			/* check if the card isn't already picked */
+			if (cards[o].id == -1) {
+				printf("Already picked\n");
+				o = -1;
+			}
+			if (o < 0 || o > cardsNumber){
+				printf("Vous devez entrer un nombre valide. Non déjà entré et compris entre 1 et %d !\n",cardsNumber);
+			} else {
+				charBuf[strcspn(charBuf, "\n")] = 0;
+				char* tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
+				strcpy(tempstr,"");
+				sprintf(tempstr, "_%d_%d",cards[o].id, cards[o].value);
+				strcat(buffer.content, strcat(strcat(strcat(tempstr," de "),cards[o].color),", "));
+				cards[o].value = -1;
+				strcpy(cards[o].color,"");
+				cards[o].id = -1;
+				n++;
+			}
+		}
+		printf("Vous avez écarté des cartes et attendez désormais que chaque joueur ait fait de même.\n");
+		sendJ(&buffer);
+		strcpy(charBuf, "");
+		n=0;
+		while(1){
+			readJ(&buffer);
+			if (buffer.status == 203) {
+				printf("You got these cards :\n");
+				charBuf = strtok(buffer.content, "_");
+				while (charBuf != NULL) {
+					while (cards[n].id != -1){
+						n++;
+						if (n>30) {
+							printf("Erreur lors de la réception des cartes écartées.");
+							break;
+						}
+					}
+					cards[n] = createCard(atoi(charBuf));
+					n=0;
+					charBuf = strtok(NULL, "_");
+					printf("%s\n",charBuf);
+					charBuf = strtok(NULL, "_");
+				}
+				break;
+			}
+		}
+		printf("Voici votre main :\n");
+		n=0;
+		while (cardsNumber > n) {
 			printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
+			if(!strcmp(cards[n].color, "Coeur")){
+				co++;
+			}
+			else if(!strcmp(cards[n].color, "Carreau")){
+				ca++;
+			}else if(!strcmp(cards[n].color, "Trèfle")){
+				tr++;
+			}else if(!strcmp(cards[n].color, "Pique")){
+				pi++;
+			}else if(!strcmp(cards[n].color, "Papayoo")){
+				pa++;
+			}
 			n++;
 		}
-		if(buffer.status == 500) {
-			break;
-		}
-	}
-	cardsNumber = n;
-	printf("Veuillez entrer les 5 numéros de carte à écarter.\n");
-	fflush(stdin);
-	n=0, o = 0;
-	strcpy(buffer.content, "");
-	while (n<5){
-		keyboardReader(&charBuf);
-		o = atoi(charBuf)-1;
-		/* check if the card isn't already picked */
-		char* tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
-		strcpy(tempstr, buffer.content);
-		charBuf2 = strtok(tempstr, " ");
-  		while (charBuf2 != NULL) {
-			if (atoi(charBuf2) == o+1) {
-			o = -1;
-			}
-    		 	charBuf2 = strtok(NULL, " ");
-  		}
-		if (o < 0 || o > cardsNumber){
-			printf("Vous devez entrer un nombre valide. Non déjà entré et compris entre 1 et %d !\n",cardsNumber);
-		} else {
 
-		charBuf[strcspn(charBuf, "\n")] = 0;
-		cards[o].value = -1;
-		strcpy(cards[o].color,"");
-		cards[o].id = -1;
-		strcat(buffer.content, strcat(charBuf," "));
-		n++;
-		}
-	}
-	printf("You removed cards %s\nYou are now waiting for every player to remove their cards.\n",buffer.content);
-	sendJ(&buffer);
-	strcpy(charBuf, "");
-	n=0;
-	while(1){
-		readJ(&buffer);
-		if (buffer.status == 203) {
-			printf("You got these cards : %s\n",buffer.content);
-  			charBuf = strtok(buffer.content, " ");
-  			while (charBuf != NULL) {
-				while (cards[n].id != -1){
-					n++;
-					if (n>30) {
-						printf("Erreur lors de la réception des cartes écartées.");
-						break;
+		printf("Vous attendez votre tour. Vous pouvez consulter des informations en attendant.[TODO]\n");
+		while(1){
+			readJ(&buffer);
+			while (buffer.status == 204) {
+				char colorOfTheTurn[8] = "Empty";
+				int numberLeft = 0;
+				char* tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
+				strcpy(tempstr, buffer.content);
+				charBuf = strtok(tempstr, "_");
+				/* Message about cards already played this turn */
+				printf("%s\n",charBuf);
+				charBuf = strtok(NULL, "_");
+				while (charBuf != NULL) {
+					tmpCard = createCard(atoi(charBuf));
+					printf("%d de %s.\n",tmpCard.value,tmpCard.color);
+					if (!strcmp(colorOfTheTurn, "Empty")){
+						if(!strcmp(tmpCard.color, "Coeur")){
+							strcpy(colorOfTheTurn, tmpCard.color);
+							numberLeft = co;
+						}
+						else if(!strcmp(tmpCard.color, "Carreau")){
+							strcpy(colorOfTheTurn, tmpCard.color);
+							numberLeft = ca;
+						}
+						else if(!strcmp(tmpCard.color, "Trèfle")){
+							strcpy(colorOfTheTurn, tmpCard.color);
+							numberLeft = tr;
+						}
+						else if(!strcmp(tmpCard.color, "Pique")){
+							strcpy(colorOfTheTurn, tmpCard.color);
+							numberLeft = pi;
+						}
+						else if(!strcmp(tmpCard.color, "Papayoo")){
+							strcpy(colorOfTheTurn, tmpCard.color);
+							numberLeft = pa;
+						}
+					}
+					charBuf = strtok(NULL, "_");
+				}
+				fflush(stdin);
+				n=0, o=-1;
+				strcpy(buffer.content, "");
+				while (o == -1){
+					printf("Veuillez entrer le numéro de la carte à jouer.\n");
+					keyboardReader(&charBuf);
+					o = atoi(charBuf)-1;
+					/* check if the card isn't already played */
+					if (shm->cards[o].id > 0 || cards[o].id == -1) {
+						o = -1;
+					}
+					/* check if the cards color is ok */
+					if (numberLeft > 0 && strcmp(cards[o].color, colorOfTheTurn)){
+						o = -1;
+					}
+					if (o < 0 || o > cardsNumber){
+						printf("Vous devez entrer un id de carte valide.\n(Non déjà jouée, de la couleur du tour s'il vous en reste, et dont l'id est compris entre 1 et %d !)\n",cardsNumber);
+						o = -1;
+					} else {
+						buffer.status = 500;
+						sprintf(buffer.content,"%d", cards[o].id);
+						cards[o].value = -1;
+						strcpy(cards[o].color,"");
+						cards[o].id = -1;
+						sendJ(&buffer);
 					}
 				}
-				cards[n] = createCard(atoi(charBuf));
-				n=0;
-    			 	charBuf = strtok(NULL, " ");
-  			}
+			}
+			/* Fin tour */
+			if (buffer.status == 205){
+				printf("%s\n", buffer.content);
+			}
+			/* Fin manche */
+
+			if (buffer.status == 206){
+				readJ(&buffer);
+				printf("%s\n", buffer.content);
+				break;
+			}
+		}
+		/* Fin partie */
+		if (buffer.status == 210){
 			break;
 		}
 	}
-	printf("Marvelous, here's your hand !\n");
-	n=0;
-	while (cardsNumber > n) {
-		printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
-		n++;
-	}
-	printf("You are waiting for your turn. You can check things if you do things [TODO]\n");
-
-
-	printf("End of the game\n");
 	close(sock);
 	closeIPCs(&shm, &nbLect, &sem);
 }
@@ -173,26 +265,26 @@ card createCard(int id){
 	card toReturn;
 	toReturn.id = id;
 	switch(id){
-		case 0 ... 9 :
-			strcpy(toReturn.color,"Coeur");
-			toReturn.value = id-0;
-		break;
-		case 10 ... 19:
-			strcpy(toReturn.color,"Carreau");
-			toReturn.value = id-10;
-		break;
-		case 20 ... 29:
-			strcpy(toReturn.color,"Trèfle");
-			toReturn.value = id-20;
-		break;
-		case 30 ... 39:
-			strcpy(toReturn.color,"Pique");
-			toReturn.value = id-30;
-		break;
-		case 40 ... 59:
-			strcpy(toReturn.color,"Papayoo");
-			toReturn.value = id-40;
-		break;
+	case 0 ... 9 :
+	strcpy(toReturn.color,"Coeur");
+	toReturn.value = id-0+1;
+	break;
+	case 10 ... 19:
+	strcpy(toReturn.color,"Carreau");
+	toReturn.value = id-10+1;
+	break;
+	case 20 ... 29:
+	strcpy(toReturn.color,"Trèfle");
+	toReturn.value = id-20+1;
+	break;
+	case 30 ... 39:
+	strcpy(toReturn.color,"Pique");
+	toReturn.value = id-30+1;
+	break;
+	case 40 ... 59:
+	strcpy(toReturn.color,"Papayoo");
+	toReturn.value = id-40+1;
+	break;
 	}
 	return toReturn;
 }
@@ -236,9 +328,6 @@ void sendJ(message * buffer) {
 	sendSocket(sock, buffer);
 }
 
-/*
- *  Used to initiate the sigactions to handle signals SIGINT, SIGQUIT and SIGTERM during the game.
- */
 void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	interrupt->sa_handler = interruptHandler;
 	interrupt->sa_flags = 0;
@@ -252,3 +341,6 @@ void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	SYS(sigaction(SIGINT, interrupt, NULL));
 	SYS(sigaction(SIGQUIT, interrupt, NULL));
 }
+
+
+

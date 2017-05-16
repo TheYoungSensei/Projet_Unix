@@ -30,6 +30,7 @@ void interruptHandler(int sigint) {
 	exit(0);
 }
 
+
 /*
  * Used to catch the SIGALRM signal during the login (After 30 seconds).
  */
@@ -43,20 +44,26 @@ void timeout(int bla){
 void serverInterrupt(int sig) {
 	/* Server Interrupt CTRL-C */
 	serverInt = 1;
-}
-
-int main(int argc, char** argv) {
+}int main(int argc, char** argv) {
 	srand(time(NULL));
 	SOCKADDR_IN sin, csin;
 	message buffer;
 	message * allMessages;
 	player player;
+	char * charBuf;
+	char * charBuf2;
+	char payoo[8];
+	int totalScore = 0;
+	int winner = 0;
+	int maxValue = 0;
+	char color[8] = "";
+
 	struct timeval tv;
 	struct sigaction act, actInt, interrupt;
 	sigset_t set;
 	fd_set readfds;
 	const char *hostname = "127.0.0.1";
-	int notNull, i, sinsize, port, n = 0, compteur, maxFd = sock, timedout, f_lock;
+	int notNull, i, sinsize, port, n = 0, manche = 0, tour = 0, compteur, maxFd = sock, timedout, f_lock;
 	/* Arguments management */
 	if(argc != 3 && argc != 2) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
@@ -75,6 +82,8 @@ int main(int argc, char** argv) {
 	serverSigaction(&act, &actInt, &set);
 	initSharedMemory(&shm, &nbLect, &sem);
 	SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
+	SYSN((charBuf) = (char *) malloc(sizeof(char) * 256));
+	SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
 	/* Parametring registration's select */
 	maxFd = sock;
 	tv.tv_sec = 3;
@@ -139,7 +148,7 @@ int main(int argc, char** argv) {
 	setHandler(&interrupt, &set);
 
 	/* malloc allMessages */
-       	SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));
+	SYSN(allMessages = (struct message*) malloc(sizeof(struct message)*acceptNbr));
 
 	/* Sending a message to all accepted but not known players */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
@@ -149,35 +158,128 @@ int main(int argc, char** argv) {
 			SYS(sendSocket(clients[compteur].sock, &buffer));
 			SYS(closesocket(clients[compteur].sock));
 			for(i = compteur; i < acceptNbr-1; i++) {
-					clients[i] = clients[i+1];
+				clients[i] = clients[i+1];
 			}
 			acceptNbr--;
 		}
 	}
 	/* Notifying all users about the game's beginning */
-	sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est à gauche de 1 etc) : ", 201, acceptNbr, buffer, clients);
+	sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
 	/* Adding the players into the sharedMemory */
 	for(compteur = 0; compteur < acceptNbr; compteur++) {
 		strcpy(player.pseudo, clients[compteur].pseudo);
 		player.score = 0;
 		addPlayer(&sem, &nbLect, &shm, player);
 	}
-	/* Giving cards to players */
-	giveCards(shm, &buffer, clients);
-	/* Retrieving removed cards */
-	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		readS(compteur, &buffer);
-		strcpy(allMessages[compteur].content, buffer.content);
+
+	/* ABOVE WORKS WELL */
+
+
+
+	while (manche < 4){
+		/* Choosing payoo */
+		n = rand()%4;
+		switch (n){
+		case 0:
+			strcpy(payoo, "Coeur");
+			break;
+		case 1:
+			strcpy(payoo, "Carreau");
+			break;
+		case 2:
+			strcpy(payoo, "Trèfle");
+			break;
+		case 3:
+			strcpy(payoo, "Pique");
+			break;
+		}
+		strcpy(charBuf,"Voici le payoo pour la manche : ");
+		sprintf(charBuf, "%s\n", payoo);
+		sendMsgToPlayers(charBuf, 202, acceptNbr, buffer, clients);
+
+		/* Giving cards to players */
+		giveCards(shm, &buffer, clients);
+		shm->nbCards = 0;
+		/* Retrieving removed cards */
+		for(compteur = 0; compteur < acceptNbr; compteur++) {
+			readS(compteur, &buffer);
+			strcpy(allMessages[compteur].content, buffer.content);
+		}
+
+		/* Sending removed cards to players on their left ((compteur+1)%acceptNbr). allMessages -> Because we need to end the withdraws before sending cards back */
+		for(compteur = 0; compteur < acceptNbr; compteur++) {
+			allMessages[compteur].status = 203;
+			SYS(sendSocket(clients[(compteur+1)%acceptNbr].sock, &(allMessages[compteur])));
+		}
+
+		/* Player number (manche+tour)%acceptNbr is beginning the "manche" */
+		strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
+		card cards[acceptNbr];
+		while (shm->nbCards < 60) {
+			buffer.status = 204;
+			strcpy(buffer.content, charBuf);
+			SYS(sendSocket(clients[(manche+tour)%acceptNbr].sock, &buffer));
+			readS((manche+tour)%acceptNbr, &buffer);
+			strcat(charBuf, buffer.content);
+			strcat(charBuf,"_");
+			cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
+			addCard(&sem,&nbLect, &shm, atoi(buffer.content));
+			tour++;
+			if (tour%acceptNbr==0){
+				/* Fin de tour. Traitement des cartes jouées, message de fin de tour aux joueurs, édition du score */
+				winner = (manche+tour)%acceptNbr;
+				for (n=0;n<acceptNbr;n++){
+					if (n==0){
+						strcpy(color,cards[(manche+tour)%acceptNbr+n].color);
+						maxValue = cards[(manche+tour)%acceptNbr+n].value;
+					}
+					if (cards[(manche+tour)%acceptNbr+n].value == 7 && !strcmp(cards[((manche+tour)+n)%acceptNbr].color, payoo)){
+						totalScore = totalScore+40;
+					}
+					if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, "Papayoo")){
+						totalScore = totalScore+cards[((manche+tour)+n)%acceptNbr].value;
+					}
+					if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, color)){
+						if (maxValue < cards[((manche+tour)+n)%acceptNbr].value){
+							maxValue = cards[((manche+tour)+n)%acceptNbr].value;
+							winner = ((manche+tour)+n)%acceptNbr;
+						}
+					}
+				}
+				sprintf(charBuf, "Résultat du tour : \nLe joueur '%s' perd ce tour.\nIl remporte un score de %d.\n", shm->players[winner].pseudo,totalScore );
+				sendMsgToPlayers(charBuf, 205, acceptNbr, buffer, clients);
+				shm->players[winner].score =  shm->players[winner].score + totalScore;
+				totalScore = 0;
+				winner = 0;
+				strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
+			}
+		}
+		/* Message de fin de manche. Rappel des points actuels aux joueurs. Empty cards in SHM */
+		strcpy(charBuf, "Résultat de la manche. Les scores des joueurs sont les suivants : \n");
+		for (n=0;n<acceptNbr;n++){
+			sprintf(charBuf2,"%s : %d.\n", shm->players[n].pseudo, shm->players[n].score);
+			strcat(charBuf, charBuf2);
+		}
+		sendMsgToPlayers(charBuf, 206, acceptNbr, buffer, clients);
+		for (n=0;n<60;n++){
+			shm->cards[n].id = -1;
+		}
+
 	}
-
-	/* Sending removed cards to players on their left ((compteur+1)%acceptNbr) */
-	for(compteur = 0; compteur < acceptNbr; compteur++) {
-		allMessages[compteur].status = 203;
-		SYS(sendSocket(clients[(compteur+1)%acceptNbr].sock, &(allMessages[compteur])));
+	/* Message de fin de partie. Gagnant déterminé. Message d'au revoir. */
+	strcpy(charBuf, "");
+	n = 250;
+	for (compteur=0;compteur<acceptNbr;compteur++){
+		if (shm->players[compteur].score < n){
+			n = shm->players[compteur].score;
+			strcpy(charBuf, "");
+			sprintf(charBuf, "Le grand gagnant est '%s' avec un score de seulement %d\n",  shm->players[compteur].pseudo, shm->players[compteur].score);
+		}
 	}
+	sendMsgToPlayers(charBuf, 210, acceptNbr, buffer, clients);
+	sendMsgToPlayers("Merci d'avoir joué à notre version du Papyoo. Bonne journée !\n", 211, acceptNbr, buffer, clients);
 
 
-	/* Future game's handeling */
 
 
 	/* Closing every socket  */
@@ -189,6 +291,46 @@ int main(int argc, char** argv) {
 	closeIPCs(&shm, &nbLect, &sem);
 }
 
+
+
+
+
+
+
+
+
+/*
+ * Used to create a card from it's id.
+ */
+card createCard(int id){
+	card toReturn;
+	toReturn.id = id;
+	switch(id){
+	case 0 ... 9 :
+	strcpy(toReturn.color,"Coeur");
+	toReturn.value = id-0+1;
+	break;
+	case 10 ... 19:
+	strcpy(toReturn.color,"Carreau");
+	toReturn.value = id-10+1;
+	break;
+	case 20 ... 29:
+	strcpy(toReturn.color,"Trèfle");
+	toReturn.value = id-20+1;
+	break;
+	case 30 ... 39:
+	strcpy(toReturn.color,"Pique");
+	toReturn.value = id-30+1;
+	break;
+	case 40 ... 59:
+	strcpy(toReturn.color,"Papayoo");
+	toReturn.value = id-40+1;
+	break;
+	}
+	return toReturn;
+}
+
+
 /*
  * Used to give cards to players.
  */
@@ -198,11 +340,11 @@ void giveCards(memory* shm, message* buffer, client* clients){
 	int *list;
 	list  = (int *) malloc(MAXCARDS * sizeof(int));
 	for(i=0; i<MAXCARDS; i++){
-    		list[i] = i;
+		list[i] = i;
 	}
 	shuffle(list, MAXCARDS);
 	for(compteur = 0; compteur < nbP; compteur++) {
-	buffer->status = 202;
+		buffer->status = 202;
 		for (compteur2=0;compteur2<MAXCARDS/nbP;compteur2++){
 			sprintf(buffer->content,"%d",list[compteur2+compteur*MAXCARDS/nbP]);
 			SYS(sendSocket(clients[compteur].sock, buffer));
@@ -216,17 +358,17 @@ void giveCards(memory* shm, message* buffer, client* clients){
  * Used to randomize the order of cards.
  */
 void shuffle(int *array, size_t n){
-    if (n > 1)
-    {
-        size_t i;
-        for (i = 0; i < n - 1; i++)
-        {
-          size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
-          int t = array[j];
-          array[j] = array[i];
-          array[i] = t;
-        }
-    }
+	if (n > 1)
+	{
+		size_t i;
+		for (i = 0; i < n - 1; i++)
+		{
+			size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
+			int t = array[j];
+			array[j] = array[i];
+			array[i] = t;
+		}
+	}
 }
 
 /*
@@ -258,6 +400,7 @@ FILE *openFile(const char * name, const char * mode, FILE * file) {
 	return fd;
 }
 
+
 /*
  *  Used to initiate the sigactions to handle signals SIGINT, SIGALRM during the login.
  */
@@ -274,7 +417,6 @@ void serverSigaction(struct sigaction *act, struct sigaction *actInt, sigset_t *
 	SYS(sigaction(SIGALRM, act, NULL));
 	SYS(sigaction(SIGINT, actInt, NULL));
 }
-
 /*
  * Used to send a message to all players.
  */
@@ -286,7 +428,6 @@ void sendMsgToPlayers(char* message, int stat, int acceptNbr, struct message buf
 		SYS(sendSocket(clients[compteur].sock, &buffer));
 	}
 }
-
 /*
  *  Used to initiate the sigactions to handle signals SIGINT, SIGQUIT and SIGTERM during the game.
  */
@@ -303,7 +444,6 @@ void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	SYS(sigaction(SIGINT, interrupt, NULL));
 	SYS(sigaction(SIGQUIT, interrupt, NULL));
 }
-
 /*
  * Used to close the server's socket and the client's sockets.
  */
@@ -334,7 +474,7 @@ int readS(int position, message  * buffer) {
 			notNull = 1;
 		}
 		for(i = position; i < acceptNbr-1; i++) {
-				clients[i] = clients[i+1];
+			clients[i] = clients[i+1];
 		}
 		acceptNbr--;
 		if(notNull == 0) return n;
@@ -345,3 +485,5 @@ int readS(int position, message  * buffer) {
 	}
 	return n;
 }
+
+

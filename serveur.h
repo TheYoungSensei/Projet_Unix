@@ -34,3 +34,5 @@ void setHandler(struct sigaction * interrupt, sigset_t *set);
 int readS(int position, message *  buffer);
 void shuffle(int *array, size_t n);
 void giveCards(memory* shm, message* buffer, client* clients);
+card createCard(int id);
+
