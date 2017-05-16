@@ -20,7 +20,7 @@ SOCKET sock;
 
 void interruptHandler(int sigint) {
 	printf("Signal %d reçu\n", sigint);
-	closeIPCs(&shm, &nbLect, &sem);
+	closeIPCs(&shm, &nbLect);
 	close(sock);
 	exit(0);
 }
@@ -72,7 +72,6 @@ int main(int argc, char** argv) {
 	buffer.status = 200;
 	sendJ(&buffer);
 	if (buffer.status == 500){
-		/* TO DISCUSS TODO */
 		exit(0);
 	}
 
@@ -306,7 +305,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	close(sock);
-	closeIPCs(&shm, &nbLect, &sem);
+	closeIPCs(&shm, &nbLect);
 }
 
 
@@ -367,6 +366,7 @@ int readJ(message *  buffer) {
 	n = readSocket(sock, buffer);
 	if (n == 0) {
 		printf("Le serveur s'est malheureusement déconnecté\n");
+		closeAllIPCs(&shm, &nbLect, &sem);
 		exit(errno);
 	}
 	return n;

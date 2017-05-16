@@ -61,4 +61,5 @@ void removePlayer(semaphore **sem, int **nbLecteur,  memory **shm, int position)
 void semUp(semaphore ** sem, int type);
 void semDown(semaphore ** sem, int type);
 void initSharedMemory(memory **shm, int **nbLect, semaphore **sem);
-void closeIPCs(memory ** shm, int** nbLect, semaphore ** sem);
+void closeIPCs(memory ** shm, int** nbLect);
+void closeAllIPCs(memory **shm, int **nbLect, semaphore **sem);

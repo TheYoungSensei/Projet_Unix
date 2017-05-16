@@ -116,7 +116,7 @@ int mReader(semaphore **sem, int **nbLecteur, memory **shm, int type) {
     case SCORE :
       tmp = (*shm)->nbPlayers;
       for(i = 0; i < tmp; i++) {
-        printf("Le Joueur : %s a %d points.\n", (*shm)->players[i].pseudo, (*shm)->players[i].score);
+        printf("Le joueur : %s a %d points.\n", (*shm)->players[i].pseudo, (*shm)->players[i].score);
       }
       break;
 		}
@@ -206,9 +206,13 @@ void initSharedMemory(memory **shm, int ** nbLect, semaphore ** sem) {
 /*
  * Used to close the ipc's.
  */
-void closeIPCs(memory ** shm, int** nbLect, semaphore ** sem) {
+void closeIPCs(memory ** shm, int** nbLect) {
 	shmdt(*shm);
 	shmdt(*nbLect);
-	/*semctl((*sem)->semid[0], (*sem)->sop[0].sem_num, IPC_RMID, NULL);
-  semctl((*sem)->semid[1], (*sem)->sop[1].sem_num, IPC_RMID, NULL);*/
+}
+
+void closeAllIPCs(memory **shm, int **nbLect, semaphore **sem) {
+  closeIPCs(shm, nbLect);
+  semctl((*sem)->semid[0], (*sem)->sop[0].sem_num, IPC_RMID, NULL);
+  semctl((*sem)->semid[1], (*sem)->sop[1].sem_num, IPC_RMID, NULL);
 }

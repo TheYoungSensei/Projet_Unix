@@ -25,7 +25,7 @@ semaphore * sem;
  */
 void interruptHandler(int sigint) {
 	printf("Interruption du serveur : %d\n", sigint);
-	closeIPCs(&shm, &nbLect, &sem);
+	closeAllIPCs(&shm, &nbLect, &sem);
 	closeSockets(&sock, &clients);
 	exit(0);
 }
@@ -109,7 +109,7 @@ void serverInterrupt(int sig) {
 				if (serverInt == 1) {
 					/* CTRL-C as been caught */
 					closeSockets(&sock, &clients);
-					closeIPCs(&shm, &nbLect, &sem);
+					closeAllIPCs(&shm, &nbLect, &sem);
 					exit(0);
 				} else if (timeoutInt == 1) {
 					/* SIGALRM as been caught */
@@ -283,7 +283,7 @@ void serverInterrupt(int sig) {
 		SYS(closesocket(clients[compteur].sock));
 	}
 	closeSockets(&sock, &clients);
-	closeIPCs(&shm, &nbLect, &sem);
+	closeAllIPCs(&shm, &nbLect, &sem);
 }
 
 
@@ -459,6 +459,11 @@ void closeSockets(SOCKET *sock, client **clients) {
 int readS(int position, message  * buffer) {
 	int n, notNull, i; /* Number of caracs get by recv */
 	n = readSocket(clients[position].sock, buffer);
+	/* TODO Gestion connexion tardive */
+	/*if(buffer->status == 200 && inGame) {
+		buffer->status = 500;
+	}*/
+	printf("n : %d\n", n);
 	if (n == 0) {
 		SYS(closesocket(clients[position].sock));
 		buffer->status = 200;
@@ -466,6 +471,7 @@ int readS(int position, message  * buffer) {
 		notNull = 0;
 		if(clients[position].pseudoKnown != 0) {
 			sprintf(buffer->content, "Déconnexion de : %s", clients[position].pseudo);
+			printf("%s\n", buffer->content);
 			notNull = 1;
 		}
 		for(i = position; i < acceptNbr-1; i++) {
@@ -477,8 +483,10 @@ int readS(int position, message  * buffer) {
 		for(i = 0 ; i < acceptNbr; i++) {
 			SYS(sendSocket(clients[i].sock, buffer));
 		}
+		if(acceptNbr < 2) {
+			printf("Fin de la partie\n");
+			exit(25);
+		}
 	}
 	return n;
 }
-
-
