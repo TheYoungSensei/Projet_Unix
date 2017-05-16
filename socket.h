@@ -24,3 +24,4 @@ int sendSocket(SOCKET sock, message * buffer);
 int serverInit(int * sock, SOCKADDR_IN * sin, int port);
 SOCKET acceptSocket(SOCKET sock, SOCKADDR_IN * csin, int * sinsize, message * buffer, int i);
 SOCKET joueurInit(const char * hostname, SOCKADDR_IN * sin, int port);
+

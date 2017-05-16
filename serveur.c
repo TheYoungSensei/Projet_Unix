@@ -30,7 +30,6 @@ void interruptHandler(int sigint) {
 	exit(0);
 }
 
-
 /*
  * Used to catch the SIGALRM signal during the login (After 30 seconds).
  */
@@ -211,23 +210,27 @@ void serverInterrupt(int sig) {
 		/* Player number (manche+tour)%acceptNbr is beginning the "manche" */
 		strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
 		card cards[acceptNbr];
-		while (shm->nbCards < 60) {
+		/* TODO 6 -> 60 */
+		/* TODO @ManietAntoine */
+		while (shm->nbCards < 6) {
 			buffer.status = 204;
 			strcpy(buffer.content, charBuf);
-			SYS(sendSocket(clients[(winner+manche+tour)%acceptNbr].sock, &buffer));
-			readS((winner+manche+tour)%acceptNbr, &buffer);
+			SYS(sendSocket(clients[(acceptNbr+winner+manche+tour)%acceptNbr].sock, &buffer));
+			readS((acceptNbr+winner+manche+tour)%acceptNbr, &buffer);
 			strcat(charBuf, buffer.content);
 			strcat(charBuf,"_");
 			cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
 			addCard(&sem,&nbLect, &shm, atoi(buffer.content));
-			tour++;
+			tour++;			
 			if (tour%acceptNbr==0){
 				/* Fin de tour. Traitement des cartes jouées, message de fin de tour aux joueurs, édition du score */
-				winner = (manche+tour)%acceptNbr;
 				for (n=0;n<acceptNbr;n++){
+					printf("%d\n",(manche+tour)%acceptNbr+n);
 					if (n==0){
-						strcpy(color,cards[(manche+tour)%acceptNbr+n].color);
-						maxValue = cards[(manche+tour)%acceptNbr+n].value;
+						strcpy(color,cards[(manche+tour+n)%acceptNbr].color);
+						maxValue = cards[(manche+tour+n)%acceptNbr].value;
+						printf("%d\n",maxValue);
+						winner = (manche+tour)%acceptNbr+n;
 					}
 					if (cards[(manche+tour)%acceptNbr+n].value == 7 && !strcmp(cards[((manche+tour)+n)%acceptNbr].color, payoo)){
 						totalScore = totalScore+40;
@@ -235,10 +238,16 @@ void serverInterrupt(int sig) {
 					if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, "Papayoo")){
 						totalScore = totalScore+cards[((manche+tour)+n)%acceptNbr].value;
 					}
+
 					if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, color)){
+						printf("in cmp %d\n",maxValue);
+						printf("in cmp %d\n",cards[((manche+tour)+n)%acceptNbr].value);
 						if (maxValue < cards[((manche+tour)+n)%acceptNbr].value){
 							maxValue = cards[((manche+tour)+n)%acceptNbr].value;
 							winner = ((manche+tour)+n)%acceptNbr;
+							printf("winner : %d\n",(manche+tour+n)%acceptNbr);
+						} else {
+							printf("winner : %d\n",winner);
 						}
 					}
 				}
@@ -438,6 +447,17 @@ void setHandler(struct sigaction * interrupt, sigset_t *set) {
 	SYS(sigaction(SIGTERM, interrupt, NULL));
 	SYS(sigaction(SIGINT, interrupt, NULL));
 	SYS(sigaction(SIGQUIT, interrupt, NULL));
+}
+/*
+ * Used to close the server's socket and the client's sockets.
+ */
+void closeSockets(SOCKET *sock, client **clients) {
+	int compteur;
+	printf("Fin du programme\n");
+	closesocket(*sock);
+	for(compteur =0; compteur < acceptNbr; compteur++) {
+		closesocket((*clients)[compteur].sock);
+	}
 }
 /*
  * Used to close the server's socket and the client's sockets.

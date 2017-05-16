@@ -24,3 +24,4 @@ int readJ(message *  buffer);
 void sendJ(message * buffer);
 void setHandler(struct sigaction * interrupt, sigset_t *set);
 card createCard(int id);
+
