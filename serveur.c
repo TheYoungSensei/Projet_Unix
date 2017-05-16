@@ -460,18 +460,6 @@ void closeSockets(SOCKET *sock, client **clients) {
 	}
 }
 /*
- * Used to close the server's socket and the client's sockets.
- */
-void closeSockets(SOCKET *sock, client **clients) {
-	int compteur;
-	printf("Fin du programme\n");
-	closesocket(*sock);
-	for(compteur =0; compteur < acceptNbr; compteur++) {
-		closesocket((*clients)[compteur].sock);
-	}
-}
-
-/*
  * Receive a message from the specified socket.
  * Returns number of caracs readed in case of success.
  * Exit in case of error.

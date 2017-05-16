@@ -20,7 +20,7 @@ SOCKET sock;
 
 void interruptHandler(int sigint) {
 	printf("Signal %d reçu\n", sigint);
-	closeIPCs(&shm, &nbLect, &sem);
+	closeIPCs(&shm, &nbLect);
 	close(sock);
 	exit(0);
 }
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
 	if (buffer.status == 500){
 		exit(0);
 	}
-	
+
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
 	while(1) {
 		/* Waiting for the server */
@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	close(sock);
-	closeIPCs(&shm, &nbLect, &sem);
+	closeIPCs(&shm, &nbLect);
 }
 
 
