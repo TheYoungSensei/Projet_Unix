@@ -172,11 +172,8 @@ void serverInterrupt(int sig) {
 		addPlayer(&sem, &nbLect, &shm, player);
 	}
 
-	/* ABOVE WORKS WELL */
-
-
-
-	while (manche < 4){
+	/* Start of the "manches" */
+	while (manche < NOMBRE_MANCHE){
 		/* Choosing payoo */
 		n = rand()%4;
 		switch (n){
@@ -193,7 +190,6 @@ void serverInterrupt(int sig) {
 			strcpy(payoo, "Pique");
 			break;
 		}
-		strcpy(charBuf,"Voici le payoo pour la manche : ");
 		sprintf(charBuf, "%s\n", payoo);
 		sendMsgToPlayers(charBuf, 202, acceptNbr, buffer, clients);
 
@@ -218,8 +214,8 @@ void serverInterrupt(int sig) {
 		while (shm->nbCards < 60) {
 			buffer.status = 204;
 			strcpy(buffer.content, charBuf);
-			SYS(sendSocket(clients[(manche+tour)%acceptNbr].sock, &buffer));
-			readS((manche+tour)%acceptNbr, &buffer);
+			SYS(sendSocket(clients[(winner+manche+tour)%acceptNbr].sock, &buffer));
+			readS((winner+manche+tour)%acceptNbr, &buffer);
 			strcat(charBuf, buffer.content);
 			strcat(charBuf,"_");
 			cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
@@ -250,7 +246,6 @@ void serverInterrupt(int sig) {
 				sendMsgToPlayers(charBuf, 205, acceptNbr, buffer, clients);
 				shm->players[winner].score =  shm->players[winner].score + totalScore;
 				totalScore = 0;
-				winner = 0;
 				strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
 			}
 		}

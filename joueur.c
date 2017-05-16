@@ -25,21 +25,27 @@ void interruptHandler(int sigint) {
 	exit(0);
 }
 int main(int argc, char** argv) {
-	message buffer;
-	char ligne[1024];
-	char * charBuf;
-	char * charBuf2;
-	const char *hostname;
-	card * cards;
-	card tmpCard;
-	int n = 0, o = 0, port, cardsNumber, co = 0, ca = 0, tr = 0, pi = 0, pa = 0;
-	SOCKADDR_IN sin = { 0 };
-	struct sigaction interrupt;
-	sigset_t set;
+	/* Vérification des arguments */
 	if(argc != 3) {
 		fprintf(stderr, "joueur <port> <ipHost>\n");
 		return ERROR;
 	}
+
+	/* Définition des variables */
+	message buffer;
+	char ligne[1024];
+	char * charBuf;
+	char * charBuf2;
+	char* tempstr;
+	const char *hostname;
+	card * cards;
+	card tmpCard;
+	char colorOfTheTurn[8];
+	int numberLeft = 0;
+	int n = 0, o = 0, port, cardsNumber, co = 0, ca = 0, tr = 0, pi = 0, pa = 0;
+	SOCKADDR_IN sin = { 0 };
+	struct sigaction interrupt;
+	sigset_t set;
 	SYSN(cards = (struct card*) malloc(sizeof(struct card)*30));
 	SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
 	port = atoi(*++argv);
@@ -47,12 +53,16 @@ int main(int argc, char** argv) {
 	sock = joueurInit(hostname, &sin, port);
 	setHandler(&interrupt, &set);
 	initSharedMemory(&shm, &nbLect, &sem);
+
 	/* Trying to connect to the server */
 	SYS(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)));
+
 	/* Showing Welcome message */
+	/* Waiting for the server */
 	readJ(&buffer);
 	printf("%s", buffer.content);
-	/* readJing the userName */
+
+	/* readJ-ing the user's name */
 	printf("Veuillez entrer votre pseudo : \n");
 	fflush(stdin);
 	keyboardReader(&charBuf);
@@ -60,32 +70,35 @@ int main(int argc, char** argv) {
 	buffer.status = 200;
 	sendJ(&buffer);
 	if (buffer.status == 500){
-		/* TO DISCUSS */
+		/* TO DISCUSS TODO */
 		exit(0);
 	}
+	
 	printf("Vous êtes actuellement en attente d'une réponse du serveur...\n");
 	while(1) {
+		/* Waiting for the server */
 		readJ(&buffer);
 		printf("%s\n", buffer.content);
 		fflush(stdin);
 		if(buffer.status == 201) {
 			break;
 		}
-		if(buffer.status == 202) {
-			printf("card : %s\n", buffer.content);
-		}
 	}
 
 	/* Game's Beginning - End of Login Phase */
+
+	/* Shows the players */
 	mReader(&sem, &nbLect, &shm, PLAYERS);
 	while(1){
 		/* Print payoo */
+		/* Waiting for the server */		
 		readJ(&buffer);
 		printf("Le payoo est %s\n\nVoici vos cartes :\n", buffer.content);
 
 		/* Card's draw */
 		n = 0;
 		while(1){
+			/* Waiting for the server */			
 			readJ(&buffer);
 			fflush(stdin);
 			if(buffer.status == 202) {
@@ -114,7 +127,7 @@ int main(int argc, char** argv) {
 				printf("Vous devez entrer un nombre valide. Non déjà entré et compris entre 1 et %d !\n",cardsNumber);
 			} else {
 				charBuf[strcspn(charBuf, "\n")] = 0;
-				char* tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
+				tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
 				strcpy(tempstr,"");
 				sprintf(tempstr, "_%d_%d",cards[o].id, cards[o].value);
 				strcat(buffer.content, strcat(strcat(strcat(tempstr," de "),cards[o].color),", "));
@@ -129,9 +142,10 @@ int main(int argc, char** argv) {
 		strcpy(charBuf, "");
 		n=0;
 		while(1){
+			/* Waiting for the server */
 			readJ(&buffer);
 			if (buffer.status == 203) {
-				printf("You got these cards :\n");
+				printf("Vous recevez :\n");
 				charBuf = strtok(buffer.content, "_");
 				while (charBuf != NULL) {
 					while (cards[n].id != -1){
@@ -156,26 +170,27 @@ int main(int argc, char** argv) {
 			printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
 			if(!strcmp(cards[n].color, "Coeur")){
 				co++;
-			}
-			else if(!strcmp(cards[n].color, "Carreau")){
+			} else if(!strcmp(cards[n].color, "Carreau")){
 				ca++;
-			}else if(!strcmp(cards[n].color, "Trèfle")){
+			} else if(!strcmp(cards[n].color, "Trèfle")){
 				tr++;
-			}else if(!strcmp(cards[n].color, "Pique")){
+			} else if(!strcmp(cards[n].color, "Pique")){
 				pi++;
-			}else if(!strcmp(cards[n].color, "Papayoo")){
+			} else if(!strcmp(cards[n].color, "Papayoo")){
 				pa++;
 			}
 			n++;
 		}
 
+		/* TODO consulter informations */
 		printf("Vous attendez votre tour. Vous pouvez consulter des informations en attendant.[TODO]\n");
 		while(1){
+			/* Waiting for the server */			
 			readJ(&buffer);
 			while (buffer.status == 204) {
-				char colorOfTheTurn[8] = "Empty";
-				int numberLeft = 0;
-				char* tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
+				strcpy(colorOfTheTurn,"Empty");
+				numberLeft = 0;
+				tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
 				strcpy(tempstr, buffer.content);
 				charBuf = strtok(tempstr, "_");
 				/* Message about cards already played this turn */
@@ -243,6 +258,7 @@ int main(int argc, char** argv) {
 			/* Fin manche */
 
 			if (buffer.status == 206){
+				/* Waiting for the server */				
 				readJ(&buffer);
 				printf("%s\n", buffer.content);
 				break;

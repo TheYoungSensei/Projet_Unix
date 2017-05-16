@@ -27,7 +27,7 @@
 #define NB_CARDS 4
 #define NAME_LENGTH 64
 #define MAXCARDS 60
-
+#define NOMBRE_MANCHE 4
 
 typedef struct semaphore {
   struct sembuf sop[2];
