@@ -137,11 +137,11 @@ int main(int argc, char** argv) {
 			o = atoi(charBuf)-1;
 			/* check if the card isn't already picked */
 			if (cards[o].id == -1) {
-				printf("Already picked\n");
+				printf("Déjà sélectionnée\n");
 				o = -1;
 			}
 			if (o < 0 || o > cardsNumber){
-				printf("Vous devez entrer un nombre valide. Non déjà entré et compris entre 1 et %d !\n",cardsNumber);
+				printf("Vous devez entrer un nombre valide. Non déjà sélectionné et compris entre 1 et %d !\n",cardsNumber);
 			} else {
 				charBuf[strcspn(charBuf, "\n")] = 0;
 				tempstr = calloc(strlen(buffer.content)+1, sizeof(char));
@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
 					exit(ERRNO);
 				} else if(timedout != 0) {
 					if(FD_ISSET(sock, &readfds)) {
-						printf("Attention ton tour commence\n");
+						printf("Attention votre tour commence\n");
 						break;
 					} else if(FD_ISSET(0, &readfds)) {
 						keyboardReader(&charBuf);
@@ -290,7 +290,7 @@ int main(int argc, char** argv) {
 						o = -1;
 					}
 					if (o < 0 || o > cardsNumber){
-						printf("Vous devez entrer un id de carte valide.\n(Non déjà jouée, de la couleur du tour s'il vous en reste, et dont l'id est compris entre 1 et %d !)\n",cardsNumber);
+						printf("Vous devez entrer un id de carte valide.\n(Encore en main et de la couleur du tour s'il vous en reste. ID toujours entre 1 et %d !)\n",cardsNumber);
 						o = -1;
 					} else {
 						buffer.status = 500;

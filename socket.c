@@ -54,7 +54,7 @@ int serverInit(int * sock, SOCKADDR_IN * sin, int port) {
 	sin->sin_port = htons(port);
 	if(bind(*(sock), (SOCKADDR *) sin, sizeof *(sin)) == ERROR) {
 		if( errno == EADDRINUSE ) {
-			fprintf(stderr, "The server is already launched\n");
+			fprintf(stderr, "Le serveur est déjà démarré\n");
 			return ERROR;
 		} else {
 			perror("bind()");
