@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
 		for(compteur = 0; compteur < acceptNbr; compteur++) {
 			if(clients[compteur].pseudoKnown == 0) {
 				buffer.status = 201;
-				strcpy(buffer.content, "Délai d'entrée du pseu ecoule. Vous ne participez pas a cette partie.");
+				strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
 				SYS(sendSocket(clients[compteur].sock, &buffer));
 				SYS(closesocket(clients[compteur].sock));
 				for(i = compteur; i < acceptNbr-1; i++) {
@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
 			}
 		}
 		/* Notifying all users about the game's beginning */
-		sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est a gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
+		sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
 		/* Adding the players into the sharedMemory */
 		for(compteur = 0; compteur < acceptNbr; compteur++) {
 			strcpy(player.pseudo, clients[compteur].pseudo);
@@ -237,30 +237,33 @@ int main(int argc, char** argv) {
 			}
 
 			/* Player number (manche+tour)%acceptNbr is beginning the "manche" */
-			strcpy(charBuf, "a toi de jouer ! Cartes déposées dans le tour actuel : _");
+			strcpy(charBuf, "À vous de jouer ! Cartes déposées dans le tour actuel : _");
 			card cards[acceptNbr];
-			/* TODO 6 -> 60 */
-			/* TODO @ManietAntoine */
-			while (shm->nbCards < NOMBRE_TOUR * acceptNbr) {
-				buffer.status = 204;
-				strcpy(buffer.content, charBuf);
-				SYS(sendSocket(clients[(acceptNbr+winner+manche+tour)%acceptNbr].sock, &buffer));
-				readS((acceptNbr+winner+manche+tour)%acceptNbr, &buffer);
-				strcat(charBuf, buffer.content);
-				strcat(charBuf,"_");
-				cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
-				addCard(&sem,&nbLect, &shm, atoi(buffer.content));
-				tour++;
-				if (tour%acceptNbr==0){
-					/* Fin de tour. Traitement des cartes jouées, message de fin de tour aux joueurs, édition du score */
-					for (n=0;n<acceptNbr;n++){
-						printf("%d\n",(manche+tour)%acceptNbr+n);
-						if (n==0){
-							strcpy(color,cards[(manche+tour+n)%acceptNbr].color);
-							maxValue = cards[(manche+tour+n)%acceptNbr].value;
-							printf("%d\n",maxValue);
-							winner = (manche+tour)%acceptNbr+n;
-						}
+			winner = -1;
+            while (shm->nbCards < NOMBRE_TOUR * acceptNbr) {
+                buffer.status = 204;
+                strcpy(buffer.content, charBuf);
+                if (winner != -1){
+                SYS(sendSocket(clients[(winner)%acceptNbr].sock, &buffer));
+                readS((winner)%acceptNbr, &buffer);
+                winner++;
+                } else {
+                SYS(sendSocket(clients[(acceptNbr+manche+tour)%acceptNbr].sock, &buffer));
+                readS((acceptNbr+manche+tour)%acceptNbr, &buffer);
+                }
+                strcat(charBuf, buffer.content);
+                strcat(charBuf,"_");
+                cards[(manche+tour)%acceptNbr] = createCard(atoi(buffer.content));
+                addCard(&sem,&nbLect, &shm, atoi(buffer.content));
+                tour++;
+                if (tour%acceptNbr==0){
+                    /* Fin de tour. Traitement des cartes jouées, message de fin de tour aux joueurs, édition du score */
+                    for (n=0;n<acceptNbr;n++){
+                        if (n==0){
+                            strcpy(color,cards[(manche+tour+n)%acceptNbr].color);
+                            maxValue = cards[(manche+tour+n)%acceptNbr].value;
+                            winner = (manche+tour)%acceptNbr+n;
+                        }
 						if (cards[(manche+tour)%acceptNbr+n].value == 7 && !strcmp(cards[((manche+tour)+n)%acceptNbr].color, payoo)){
 							totalScore = totalScore+40;
 						}
@@ -280,7 +283,7 @@ int main(int argc, char** argv) {
 					sendMsgToPlayers(charBuf, 205, acceptNbr, buffer, clients);
 					shm->players[winner].score =  shm->players[winner].score + totalScore;
 					totalScore = 0;
-					strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
+					strcpy(charBuf, "À vous de jouer ! Cartes déposées dans le tour actuel : _");
 				}
 			}
 			/* Message de fin de manche. Rappel des points actuels aux joueurs. Empty cards in SHM */
@@ -397,7 +400,7 @@ void lock() {
 	SYS((f_lock = open("serveur.lock", O_RDWR)));
 	if (flock(f_lock, LOCK_EX | LOCK_NB) == ERROR){
 		if( errno == EWOULDBLOCK ){
-			fprintf(stderr, "Le serveur est deja en cours dexecution\n");
+			fprintf(stderr, "Le serveur est déjà en cours d'exécution\n");
 			exit(errno);
 		} else {
 			perror("flock()");
@@ -496,7 +499,7 @@ int readS(int position, message  * buffer) {
 		if(FD_ISSET(sock, &readfds)) {
 			/* Game is launched so this a to late connexion */
 			SYS((csock = accept(sock, (SOCKADDR *) &csinSock, (socklen_t *) &sinsize)));
-			sprintf(buffer->content, "La partie a déjà débutée.\n");
+			sprintf(buffer->content, "La partie a déjà débuté.\n");
 			buffer->status = 500;
 			sendSocket(csock, buffer);
 			continue;
@@ -523,7 +526,7 @@ int readS(int position, message  * buffer) {
 				}
 				printf("Fin de la partie\n");
 				buffer->status = 600;
-				strcpy(buffer->content, "Il n'y a plus assez de joueurs disponible\nFin de la partie\n");
+				strcpy(buffer->content, "Il n'y a plus assez de joueurs disponibles\nFin de la partie\n");
 				for(i = 0; i < acceptNbr; i++) {
 					sendSocket(clients[i].sock, buffer);
 				}
