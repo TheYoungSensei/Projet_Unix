@@ -10,10 +10,10 @@ serveur : serveur.o ipc.o socket.o
 joueur : joueur.o socket.o ipc.o
 	$(CC) joueur.o socket.o ipc.o -o joueur
 
-serveur.o : serveur.h global.h ipc.h socket.h serveur.c
+serveur.o : serveur.h global.h ipc.h socket.h AfficherCaracteresCarte.h serveur.c
 	$(CC) -c serveur.c
 
-joueur.o : joueur.h global.h ipc.h socket.h joueur.c
+joueur.o : joueur.h global.h ipc.h socket.h AfficherCaracteresCarte.h joueur.c
 	$(CC) -c joueur.c
 
 ipc.o : global.h ipc.h ipc.c

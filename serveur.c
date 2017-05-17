@@ -208,16 +208,16 @@ int main(int argc, char** argv) {
 			n = rand()%4;
 			switch (n){
 			case 0:
-				strcpy(payoo, "Coeur");
+				strcpy(payoo, COEUR);
 				break;
 			case 1:
-				strcpy(payoo, "Carreau");
+				strcpy(payoo, CARREAU);
 				break;
 			case 2:
-				strcpy(payoo, "Trèfle");
+				strcpy(payoo, TREFLE);
 				break;
 			case 3:
-				strcpy(payoo, "Pique");
+				strcpy(payoo, PIQUE);
 				break;
 			}
 			sprintf(charBuf, "%s\n", payoo);
@@ -330,19 +330,19 @@ card createCard(int id){
 	toReturn.id = id;
 	switch(id){
 	case 0 ... 9 :
-	strcpy(toReturn.color,"Coeur");
+	strcpy(toReturn.color,COEUR);
 	toReturn.value = id-0+1;
 	break;
 	case 10 ... 19:
-	strcpy(toReturn.color,"Carreau");
+	strcpy(toReturn.color,CARREAU);
 	toReturn.value = id-10+1;
 	break;
 	case 20 ... 29:
-	strcpy(toReturn.color,"Trèfle");
+	strcpy(toReturn.color,TREFLE);
 	toReturn.value = id-20+1;
 	break;
 	case 30 ... 39:
-	strcpy(toReturn.color,"Pique");
+	strcpy(toReturn.color,PIQUE);
 	toReturn.value = id-30+1;
 	break;
 	case 40 ... 59:

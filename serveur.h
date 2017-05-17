@@ -16,6 +16,7 @@
 #include "global.h"
 #include "socket.h"
 #include "ipc.h"
+#include "AfficherCaracteresCarte.h"
 
 typedef struct client {
   int pseudoKnown;

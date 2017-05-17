@@ -16,6 +16,7 @@
 #include "global.h"
 #include "socket.h"
 #include "ipc.h"
+#include "AfficherCaracteresCarte.h"
 
 #endif
 
@@ -24,4 +25,3 @@ int readJ(message *  buffer);
 void sendJ(message * buffer);
 void setHandler(struct sigaction * interrupt, sigset_t *set);
 card createCard(int id);
-

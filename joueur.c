@@ -172,13 +172,13 @@ int main(int argc, char** argv) {
 		n=0;
 		while (cardsNumber > n) {
 			printf("Carte %d - %d de %s.\n",n+1,cards[n].value,cards[n].color);
-			if(!strcmp(cards[n].color, "Coeur")){
+			if(!strcmp(cards[n].color, COEUR)){
 				co++;
-			} else if(!strcmp(cards[n].color, "Carreau")){
+			} else if(!strcmp(cards[n].color, CARREAU)){
 				ca++;
-			} else if(!strcmp(cards[n].color, "Trèfle")){
+			} else if(!strcmp(cards[n].color, TREFLE)){
 				tr++;
-			} else if(!strcmp(cards[n].color, "Pique")){
+			} else if(!strcmp(cards[n].color, PIQUE)){
 				pi++;
 			} else if(!strcmp(cards[n].color, "Papayoo")){
 				pa++;
@@ -238,19 +238,19 @@ int main(int argc, char** argv) {
 					tmpCard = createCard(atoi(charBuf));
 					printf("%d de %s.\n",tmpCard.value,tmpCard.color);
 					if (!strcmp(colorOfTheTurn, "Empty")){
-						if(!strcmp(tmpCard.color, "Coeur")){
+						if(!strcmp(tmpCard.color, COEUR)){
 							strcpy(colorOfTheTurn, tmpCard.color);
 							numberLeft = co;
 						}
-						else if(!strcmp(tmpCard.color, "Carreau")){
+						else if(!strcmp(tmpCard.color, CARREAU)){
 							strcpy(colorOfTheTurn, tmpCard.color);
 							numberLeft = ca;
 						}
-						else if(!strcmp(tmpCard.color, "Trèfle")){
+						else if(!strcmp(tmpCard.color, TREFLE)){
 							strcpy(colorOfTheTurn, tmpCard.color);
 							numberLeft = tr;
 						}
-						else if(!strcmp(tmpCard.color, "Pique")){
+						else if(!strcmp(tmpCard.color, PIQUE)){
 							strcpy(colorOfTheTurn, tmpCard.color);
 							numberLeft = pi;
 						}
@@ -320,19 +320,19 @@ card createCard(int id){
 	toReturn.id = id;
 	switch(id){
 	case 0 ... 9 :
-	strcpy(toReturn.color,"Coeur");
+	strcpy(toReturn.color,COEUR);
 	toReturn.value = id-0+1;
 	break;
 	case 10 ... 19:
-	strcpy(toReturn.color,"Carreau");
+	strcpy(toReturn.color,CARREAU);
 	toReturn.value = id-10+1;
 	break;
 	case 20 ... 29:
-	strcpy(toReturn.color,"Trèfle");
+	strcpy(toReturn.color,TREFLE);
 	toReturn.value = id-20+1;
 	break;
 	case 30 ... 39:
-	strcpy(toReturn.color,"Pique");
+	strcpy(toReturn.color,PIQUE);
 	toReturn.value = id-30+1;
 	break;
 	case 40 ... 59:
