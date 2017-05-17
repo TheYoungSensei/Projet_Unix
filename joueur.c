@@ -373,7 +373,14 @@ int readJ(message *  buffer) {
 	n = readSocket(sock, buffer);
 	if (n == 0) {
 		printf("Le serveur s'est malheureusement déconnecté\n");
-		closeAllIPCs(&shm, &nbLect, &sem);
+		closeAllIPCs(&shm, &nbLect, &sem); /* If time change to close all IPCs */
+		closesocket(sock);
+		exit(errno);
+	}
+	if(buffer->status == 600) {
+		printf("%s", buffer->content);
+		closeIPCs(&shm, &nbLect);
+		closesocket(sock);
 		exit(errno);
 	}
 	return n;

@@ -146,8 +146,7 @@ int main(int argc, char** argv) {
 			} else {
 				if (FD_ISSET(sock, &readfds)){
 					if (acceptNbr == 0) { /* If known pseudos's number = 1 */
-						printf("ALARM\n");
-						SYS(alarm(INSCRIPTION_TIME)); //TODO return to 30
+						SYS(alarm(INSCRIPTION_TIME));
 					}
 					if(acceptNbr == MAX_PLAYER) {
 						acceptSocket(sock, &csinSock, &sinsize, &buffer, acceptNbr);
@@ -312,11 +311,9 @@ int main(int argc, char** argv) {
 			}
 		}
 		sendMsgToPlayers(charBuf, 210, acceptNbr, buffer, clients);
-		sendMsgToPlayers("Merci d'avoir joué à notre version du Papayoo. Bonne journée !\n", 211, acceptNbr, buffer, clients);
-		for(compteur = 0; compteur < acceptNbr; compteur++) {
-			closesocket(clients[compteur].sock);
-		}
+		sendMsgToPlayers("Merci d'avoir joué à notre version du Papayoo. Bonne journée !\n", 600, acceptNbr, buffer, clients);
 		closeAllIPCs(&shm, &nbLect, &sem);
+		SYS(sigprocmask(SIG_UNBLOCK, &set, NULL));
 	}
 	closeSockets(&sock, &clients);
 	exit(0);
@@ -404,7 +401,7 @@ void lock() {
 	SYS((f_lock = open("serveur.lock", O_RDWR)));
 	if (flock(f_lock, LOCK_EX | LOCK_NB) == ERROR){
 		if( errno == EWOULDBLOCK ){
-			fprintf(stderr, "The server is already launched");
+			fprintf(stderr, "The server is already launched\n");
 			exit(errno);
 		} else {
 			perror("flock()");
@@ -530,6 +527,13 @@ int readS(int position, message  * buffer) {
 				}
 				if(acceptNbr < 2) {
 					printf("Fin de la partie\n");
+					buffer->status = 600;
+					strcpy(buffer->content, "Il n'y a plus assez de joueurs disponible\nFin de la partie\n");
+					for(i = 0; i < acceptNbr; i++) {
+						sendSocket(clients[i].sock, buffer);
+					}
+					closeAllIPCs(&shm, &nbLect, &sem);
+					closeSockets(&sock ,&clients);
 					exit(25);
 				}
 			}
