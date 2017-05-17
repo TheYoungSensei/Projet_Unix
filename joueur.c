@@ -104,8 +104,14 @@ int main(int argc, char** argv) {
 		/* Print payoo */
 		/* Waiting for the server */
 		readJ(&buffer);
+		/* Fin partie */
+		if (buffer.status == 210){
+			printf("%s\n", buffer.content);
+			fflush(stdin);
+			break;
+		}
 		printf("Le payoo est %s\n\nVoici vos cartes :\n", buffer.content);
-
+		fflush(stdin);
 		/* Card's draw */
 		n = 0;
 		while(1){
@@ -304,16 +310,16 @@ int main(int argc, char** argv) {
 
 			if (buffer.status == 206){
 				/* Waiting for the server */
-				readJ(&buffer);
+				/*readJ(&buffer);*/
 				printf("%s\n", buffer.content);
+				printf("_____________________________________________________________\n");
+				fflush(stdin);
 				break;
 			}
 		}
-		/* Fin partie */
-		if (buffer.status == 210){
-			break;
-		}
 	}
+	readJ(&buffer);
+	/*printf("%s", buffer.content);*/
 	close(sock);
 	closeIPCs(&shm, &nbLect);
 }

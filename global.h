@@ -38,7 +38,8 @@
 #define ERRNO errno
 #define TEMPS_SELECT 3
 #define NOMBRE_MANCHE 3
-#define INSCRIPTION_TIME 10
+#define NOMBRE_TOUR 0
+#define INSCRIPTION_TIME 60
 
 #define SYS(call) ((call) == -1) ? perror(#call ": ERROR"), exit(1) : 0
 #define SYSN(call) ((call) == NULL) ? perror(#call ": ERROR"), exit(1) : 0

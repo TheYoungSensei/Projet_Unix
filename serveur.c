@@ -25,7 +25,6 @@ semaphore * sem;
  * Used to catch SIGINT, SIGQUIT and SIGTERM signals during the game.
  */
 void interruptHandler(int sigint) {
-	printf("Interruption du serveur : %d\n", sigint);
 	closeAllIPCs(&shm, &nbLect, &sem);
 	closeSockets(&sock, &clients);
 	exit(0);
@@ -118,7 +117,7 @@ int main(int argc, char** argv) {
 			usleep(50);
 			/* After 30 sec if there are 2 players or more */
 			if(timeoutInt == 1 && pseudosNbr > 1) {
-				printf("La partie va commencer\n");
+				printf("La partie va commencer.\n");
 				break;
 			}
 			/* Parametring registration's select */
@@ -183,7 +182,7 @@ int main(int argc, char** argv) {
 		for(compteur = 0; compteur < acceptNbr; compteur++) {
 			if(clients[compteur].pseudoKnown == 0) {
 				buffer.status = 201;
-				strcpy(buffer.content, "Délai d'entrée du pseudo écoulé. Vous ne participez pas à cette partie.");
+				strcpy(buffer.content, "Délai d'entrée du pseu ecoule. Vous ne participez pas a cette partie.");
 				SYS(sendSocket(clients[compteur].sock, &buffer));
 				SYS(closesocket(clients[compteur].sock));
 				for(i = compteur; i < acceptNbr-1; i++) {
@@ -193,7 +192,7 @@ int main(int argc, char** argv) {
 			}
 		}
 		/* Notifying all users about the game's beginning */
-		sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est à gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
+		sendMsgToPlayers("Lancement de la partie !\nVoici le placement des joueurs (2 est a gauche de 1 etc) : \n", 201, acceptNbr, buffer, clients);
 		/* Adding the players into the sharedMemory */
 		for(compteur = 0; compteur < acceptNbr; compteur++) {
 			strcpy(player.pseudo, clients[compteur].pseudo);
@@ -238,11 +237,11 @@ int main(int argc, char** argv) {
 			}
 
 			/* Player number (manche+tour)%acceptNbr is beginning the "manche" */
-			strcpy(charBuf, "À toi de jouer ! Cartes déposées dans le tour actuel : _");
+			strcpy(charBuf, "a toi de jouer ! Cartes déposées dans le tour actuel : _");
 			card cards[acceptNbr];
 			/* TODO 6 -> 60 */
 			/* TODO @ManietAntoine */
-			while (shm->nbCards < 6) {
+			while (shm->nbCards < NOMBRE_TOUR * acceptNbr) {
 				buffer.status = 204;
 				strcpy(buffer.content, charBuf);
 				SYS(sendSocket(clients[(acceptNbr+winner+manche+tour)%acceptNbr].sock, &buffer));
@@ -270,14 +269,10 @@ int main(int argc, char** argv) {
 						}
 
 						if (!strcmp(cards[((manche+tour)+n)%acceptNbr].color, color)){
-							printf("in cmp %d\n",maxValue);
-							printf("in cmp %d\n",cards[((manche+tour)+n)%acceptNbr].value);
 							if (maxValue < cards[((manche+tour)+n)%acceptNbr].value){
 								maxValue = cards[((manche+tour)+n)%acceptNbr].value;
 								winner = ((manche+tour)+n)%acceptNbr;
-								printf("winner : %d\n",(manche+tour+n)%acceptNbr);
 							} else {
-								printf("winner : %d\n",winner);
 							}
 						}
 					}
@@ -298,6 +293,7 @@ int main(int argc, char** argv) {
 			for (n=0;n<60;n++){
 				shm->cards[n].id = -1;
 			}
+			manche++;
 
 		}
 		/* Message de fin de partie. Gagnant déterminé. Message d'au revoir. */
@@ -525,17 +521,15 @@ int readS(int position, message  * buffer) {
 				for(i = 0 ; i < acceptNbr; i++) {
 					SYS(sendSocket(clients[i].sock, buffer));
 				}
-				if(acceptNbr < 2) {
-					printf("Fin de la partie\n");
-					buffer->status = 600;
-					strcpy(buffer->content, "Il n'y a plus assez de joueurs disponible\nFin de la partie\n");
-					for(i = 0; i < acceptNbr; i++) {
-						sendSocket(clients[i].sock, buffer);
-					}
-					closeAllIPCs(&shm, &nbLect, &sem);
-					closeSockets(&sock ,&clients);
-					exit(25);
+				printf("Fin de la partie\n");
+				buffer->status = 600;
+				strcpy(buffer->content, "Il n'y a plus assez de joueurs disponible\nFin de la partie\n");
+				for(i = 0; i < acceptNbr; i++) {
+					sendSocket(clients[i].sock, buffer);
 				}
+				closeAllIPCs(&shm, &nbLect, &sem);
+				closeSockets(&sock ,&clients);
+				exit(25);
 			}
 			return n;
 		}
