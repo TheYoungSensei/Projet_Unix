@@ -13,9 +13,10 @@
 #include "serveur.h"
 
 /* Needed outside of the main and more precisely in signals management */
-int serverInt = 0, acceptNbr = 0, timeoutInt = 0,  pseudosNbr = 0, inGame = 0;
+int serverInt = 0, acceptNbr = 0, timeoutInt = 0,  pseudosNbr = 0, sinsize;
 SOCKET sock;
 client * clients;
+SOCKADDR_IN sinSock, csinSock;
 memory * shm;
 int * nbLect;
 semaphore * sem;
@@ -31,7 +32,7 @@ void interruptHandler(int sigint) {
 }
 
 /*
- * Used to catch the SIGALRM signal during the login (After 30 seconds).
+ * Used to catch the SIGALRM signal during the login (After INSCRIPTION_TIME seconds).
  */
 void timeout(int bla){
 	timeoutInt = 1;
@@ -51,7 +52,6 @@ void serverInterrupt(int sig) {
 
 int main(int argc, char** argv) {
 	srand(time(NULL));
-	SOCKADDR_IN sin, csin;
 	message buffer;
 	message * allMessages;
 	player player;
@@ -63,13 +63,12 @@ int main(int argc, char** argv) {
 	int winner = 0;
 	int maxValue = 0;
 	char color[8] = "";
-
 	struct timeval tv;
 	struct sigaction act, actInt, interrupt;
 	sigset_t set;
 	fd_set readfds;
 	const char *hostname = "127.0.0.1";
-	int notNull, i, sinsize, port, n = 0, manche = 0, tour = 0, compteur, maxFd = sock, timedout, f_lock;
+	int notNull, i, port, n = 0, manche = 0, tour = 0, compteur, maxFd = sock, timedout, f_lock;
 	/* Arguments management */
 	if(argc != 3 && argc != 2) {
 		fprintf(stderr, "serveur <numPort> <stderr>\n");
@@ -82,9 +81,9 @@ int main(int argc, char** argv) {
 	/* Lock */
 	lock();
 	/* Server's initialisation */
+	SYS(serverInit(&sock, &sinSock, port));
 	while(1) { /* Server is Running */
-		SYS(serverInit(&sock, &sin, port));
-		/*act = emptySig;
+		act = emptySig;
 		actInt = emptySig;
 		interrupt = emptySig;
 		totalScore = 0;
@@ -98,24 +97,24 @@ int main(int argc, char** argv) {
 		manche = 0;
 		tour = 0;
 		compteur = 0;
-		timedout = 0;*/
-		sinsize = sizeof csin;
-		/*serverInt = 0;
+		timedout = 0;
+		sinsize = sizeof csinSock;
+		serverInt = 0;
 		acceptNbr = 0;
 		timeoutInt = 0;
-		pseudosNbr = 0;*/
+		pseudosNbr = 0;
 		/* Sigaction's initialisation */
 		serverSigaction(&act, &actInt, &set);
 		initSharedMemory(&shm, &nbLect, &sem);
+		/* Parametring registration's select */
 		SYSN((clients = (client*) malloc(sizeof(client) * MAX_PLAYER)));
 		SYSN((charBuf) = (char *) malloc(sizeof(char) * 256));
 		SYSN((charBuf2) = (char *) malloc(sizeof(char) * 256));
-		/* Parametring registration's select */
 		maxFd = sock;
-		tv.tv_sec = TEMPS_SELECT;
-		tv.tv_usec = 0;
 		/* Begin registration's while */
 		while(1) {
+			tv.tv_sec = TEMPS_SELECT;
+			tv.tv_usec = 0;
 			usleep(50);
 			/* After 30 sec if there are 2 players or more */
 			if(timeoutInt == 1 && pseudosNbr > 1) {
@@ -147,13 +146,14 @@ int main(int argc, char** argv) {
 			} else {
 				if (FD_ISSET(sock, &readfds)){
 					if (acceptNbr == 0) { /* If known pseudos's number = 1 */
-						alarm(INSCRIPTION_TIME); //TODO return to 30
+						printf("ALARM\n");
+						SYS(alarm(INSCRIPTION_TIME)); //TODO return to 30
 					}
 					if(acceptNbr == MAX_PLAYER) {
-						acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr);
+						acceptSocket(sock, &csinSock, &sinsize, &buffer, acceptNbr);
 					} else {
 						clients[acceptNbr].pseudoKnown = 0;
-						SYS((clients[acceptNbr].sock = acceptSocket(sock, &csin, &sinsize, &buffer, acceptNbr)));
+						SYS((clients[acceptNbr].sock = acceptSocket(sock, &csinSock, &sinsize, &buffer, acceptNbr)));
 						acceptNbr++;
 					}
 				} else {
@@ -312,26 +312,15 @@ int main(int argc, char** argv) {
 			}
 		}
 		sendMsgToPlayers(charBuf, 210, acceptNbr, buffer, clients);
-		sendMsgToPlayers("Merci d'avoir joué à notre version du Papyoo. Bonne journée !\n", 211, acceptNbr, buffer, clients);
+		sendMsgToPlayers("Merci d'avoir joué à notre version du Papayoo. Bonne journée !\n", 211, acceptNbr, buffer, clients);
 		for(compteur = 0; compteur < acceptNbr; compteur++) {
 			closesocket(clients[compteur].sock);
 		}
-
-		closeSockets(&sock, &clients);
 		closeAllIPCs(&shm, &nbLect, &sem);
-		exit(0);
 	}
 	closeSockets(&sock, &clients);
-	closeAllIPCs(&shm, &nbLect, &sem);
+	exit(0);
 }
-
-
-
-
-
-
-
-
 
 /*
  * Used to create a card from it's id.
@@ -495,37 +484,56 @@ void closeSockets(SOCKET *sock, client **clients) {
  * Exit in case of error.
  */
 int readS(int position, message  * buffer) {
-	int n, notNull, i; /* Number of caracs get by recv */
-	n = readSocket(clients[position].sock, buffer);
-	/* TODO Gestion connexion tardive */
-	if(buffer->status == 200 && inGame) {
-		buffer->status = 500;
-		printf("n : %d\n", n);
-
+	int n, notNull, i, maxFd, timedout; /* Number of caracs get by recv */
+	struct timeval tv;
+	fd_set readfds;
+	SOCKET csock;
+	while(1) {
+		tv.tv_sec = 60;
+		tv.tv_usec = 0;
+		FD_ZERO(&readfds);
+		FD_SET(sock, &readfds);
+		maxFd = sock;
+		FD_SET(clients[position].sock, &readfds);
+		if(sock < clients[position].sock) maxFd = clients[position].sock;
+		if((timedout = select(maxFd + 1, &readfds, NULL, NULL, &tv)) == -1) {
+			perror("select()");
+			exit(ERRNO);
+		}
+		if(FD_ISSET(sock, &readfds)) {
+			/* Game is launched so this a to late connexion */
+			SYS((csock = accept(sock, (SOCKADDR *) &csinSock, (socklen_t *) &sinsize)));
+			sprintf(buffer->content, "La partie a déjà débutée.\n");
+			buffer->status = 500;
+			sendSocket(csock, buffer);
+			continue;
+		} else {
+			n = readSocket(clients[position].sock, buffer);
+			if (n == 0) {
+				SYS(closesocket(clients[position].sock));
+				buffer->status = 200;
+				/* notNull -> Allow us to know whether we have to remove the pseudo's number */
+				notNull = 0;
+				if(clients[position].pseudoKnown != 0) {
+					sprintf(buffer->content, "Déconnexion de : %s", clients[position].pseudo);
+					printf("%s\n", buffer->content);
+					notNull = 1;
+				}
+				for(i = position; i < acceptNbr-1; i++) {
+					clients[i] = clients[i+1];
+				}
+				acceptNbr--;
+				if(notNull == 0) return n;
+				pseudosNbr--;
+				for(i = 0 ; i < acceptNbr; i++) {
+					SYS(sendSocket(clients[i].sock, buffer));
+				}
+				if(acceptNbr < 2) {
+					printf("Fin de la partie\n");
+					exit(25);
+				}
+			}
+			return n;
+		}
 	}
-	if (n == 0) {
-		SYS(closesocket(clients[position].sock));
-		buffer->status = 200;
-		/* notNull -> Allow us to know whether we have to remove the pseudo's number */
-		notNull = 0;
-		if(clients[position].pseudoKnown != 0) {
-			sprintf(buffer->content, "Déconnexion de : %s", clients[position].pseudo);
-			printf("%s\n", buffer->content);
-			notNull = 1;
-		}
-		for(i = position; i < acceptNbr-1; i++) {
-			clients[i] = clients[i+1];
-		}
-		acceptNbr--;
-		if(notNull == 0) return n;
-		pseudosNbr--;
-		for(i = 0 ; i < acceptNbr; i++) {
-			SYS(sendSocket(clients[i].sock, buffer));
-		}
-		if(acceptNbr < 2) {
-			printf("Fin de la partie\n");
-			exit(25);
-		}
-	}
-	return n;
 }

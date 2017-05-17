@@ -186,7 +186,6 @@ int main(int argc, char** argv) {
 			n++;
 		}
 
-		/* TODO consulter informations */
 		while(1){
 			printf("Vous attendez votre tour.\n");
 			fflush(stdin);
