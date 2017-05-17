@@ -401,7 +401,7 @@ void lock() {
 	SYS((f_lock = open("serveur.lock", O_RDWR)));
 	if (flock(f_lock, LOCK_EX | LOCK_NB) == ERROR){
 		if( errno == EWOULDBLOCK ){
-			fprintf(stderr, "The server is already launched\n");
+			fprintf(stderr, "Le serveur est deja en cours dexecution\n");
 			exit(errno);
 		} else {
 			perror("flock()");

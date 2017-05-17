@@ -57,7 +57,14 @@ int main(int argc, char** argv) {
 	initSharedMemory(&shm, &nbLect, &sem);
 
 	/* Trying to connect to the server */
-	SYS(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)));
+	if(connect(sock, (SOCKADDR *) &sin, sizeof(SOCKADDR)) == -1) {
+		if(errno == ECONNREFUSED) {
+			printf("Le serveur est actuellement hors ligne\n");
+		} else {
+			perror("connect()");
+		}
+		exit(errno);
+	}
 
 	/* Showing Welcome message */
 	/* Waiting for the server */
